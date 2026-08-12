@@ -52,7 +52,7 @@ export default function PeacefulHomePage() {
   return (
     <div className="space-y-6 pb-6">
       {/* Peaceful Status Hero Card */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#151C22] to-[#12161A] border border-[#52B788]/20 p-6 rounded-[32px] shadow-2xl space-y-6">
+      <div className="relative overflow-hidden bg-gradient-to-b from-[#151C22] to-[#12161A] border border-[#52B788]/20 p-6 rounded-[32px] shadow-2xl space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#52B788] animate-ping" />
@@ -65,15 +65,15 @@ export default function PeacefulHomePage() {
           </span>
         </div>
 
-        {/* Ambient Heartbeat Wave Visual */}
-        <div className="h-16 flex items-center justify-center relative my-2">
-          <svg className="w-full h-full text-[#52B788]/40 overflow-visible" viewBox="0 0 400 60" preserveAspectRatio="none">
+        {/* Ambient Heartbeat Wave Visual - Constrained Height & Zero Overlap */}
+        <div className="h-10 w-full flex items-center justify-center overflow-hidden my-1">
+          <svg className="w-full h-8 text-[#52B788]/50" viewBox="0 0 400 40" preserveAspectRatio="none">
             <path
-              d="M0,30 Q50,30 80,30 T120,30 T140,10 T160,50 T180,20 T200,40 T220,30 T300,30 T400,30"
+              d="M0,20 Q60,20 100,20 T140,20 T155,6 T170,34 T185,12 T200,26 T215,20 T300,20 T400,20"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.5"
-              className="drop-shadow-[0_0_10px_rgba(82,183,136,0.6)]"
+              strokeWidth="2.2"
+              className="drop-shadow-[0_0_8px_rgba(82,183,136,0.5)]"
             />
           </svg>
         </div>
@@ -82,17 +82,17 @@ export default function PeacefulHomePage() {
         <button
           onClick={handleCheckIn}
           disabled={isSubmittingCheckIn}
-          className={`w-full py-4 px-6 rounded-2xl font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer shadow-[0_0_25px_rgba(82,183,136,0.3)] ${
+          className={`w-full py-4 px-6 rounded-2xl font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer shadow-[0_0_25px_rgba(82,183,136,0.35)] ${
             checkInSuccess
               ? "bg-emerald-400 text-black scale-105"
               : "bg-gradient-to-r from-[#52B788] to-[#74C69D] hover:from-[#40A073] hover:to-[#52B788] text-[#0F1317]"
           }`}
         >
-          <CheckCircle2 className="w-5 h-5" />
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span>{checkInSuccess ? "CHECK-IN CONFIRMED!" : isSubmittingCheckIn ? "CONFIRMING..." : "I AM SAFE & WELL"}</span>
         </button>
 
-        <div className="text-center text-xs text-gray-400 space-y-1">
+        <div className="text-center text-xs text-gray-400 space-y-1 pt-1">
           <p>Last check-in: {heartbeatState ? new Date(heartbeatState.lastCheckInDate).toLocaleTimeString() : "Just now"}</p>
           <p className="text-[#52B788] font-bold text-[11px]">Phase 0: Silent & Secure • 0 Notifications Sent</p>
         </div>
