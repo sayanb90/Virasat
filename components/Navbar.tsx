@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Vault, Users, HeartPulse, ShieldCheck, LogOut, ChevronDown, Lock } from "lucide-react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { AuthModal } from "@/components/AuthModal";
 
 export function Navbar() {
@@ -15,9 +17,38 @@ export function Navbar() {
     email: "sayan.b@example.com",
     provider: "Google",
     initials: "SB",
+    photoUrl: "",
   });
 
-  const handleLoginSuccess = (user: { name: string; email: string; provider: string }) => {
+  useEffect(() => {
+    // Subscribe to real Firebase auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const name = user.displayName || user.email?.split("@")[0] || "User";
+        const email = user.email || "";
+        const initials = name
+          ? name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2)
+          : "U";
+
+        setCurrentUser({
+          name,
+          email,
+          provider: "Google Auth",
+          initials,
+          photoUrl: user.photoURL || "",
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLoginSuccess = (user: { name: string; email: string; avatarUrl?: string; provider: string }) => {
     const initials = user.name
       ? user.name
           .split(" ")
@@ -32,7 +63,25 @@ export function Navbar() {
       email: user.email,
       provider: user.provider,
       initials,
+      photoUrl: user.avatarUrl || "",
     });
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser({
+        name: "Sayan Bhattacharjee",
+        email: "sayan.b@example.com",
+        provider: "Signed Out",
+        initials: "SB",
+        photoUrl: "",
+      });
+      setIsProfileMenuOpen(false);
+      setIsAuthModalOpen(true);
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
   };
 
   const navLinks = [
@@ -64,9 +113,17 @@ export function Navbar() {
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               className="flex items-center space-x-2 p-1.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-emerald-500/20 transition-all cursor-pointer"
             >
-              <div className="w-8.5 h-8.5 rounded-xl bg-gradient-to-tr from-[#52B788] to-[#74C69D] flex items-center justify-center text-[#0F1317] font-black text-xs shadow-inner">
-                {currentUser.initials}
-              </div>
+              {currentUser.photoUrl ? (
+                <img
+                  src={currentUser.photoUrl}
+                  alt={currentUser.name}
+                  className="w-8.5 h-8.5 rounded-xl object-cover border border-[#52B788]/40"
+                />
+              ) : (
+                <div className="w-8.5 h-8.5 rounded-xl bg-gradient-to-tr from-[#52B788] to-[#74C69D] flex items-center justify-center text-[#0F1317] font-black text-xs shadow-inner">
+                  {currentUser.initials}
+                </div>
+              )}
               <ChevronDown className={`w-3.5 h-3.5 text-[#52B788] transition-transform duration-200 ${isProfileMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -75,14 +132,22 @@ export function Navbar() {
               <div className="absolute right-0 mt-2 w-64 rounded-3xl bg-[#151A20] border border-emerald-500/30 p-3 shadow-2xl space-y-2 z-50 animate-in fade-in duration-150">
                 {/* User Info Header */}
                 <div className="p-3 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#52B788]/20 border border-[#52B788]/40 flex items-center justify-center text-[#52B788] font-bold text-xs">
-                    {currentUser.initials}
-                  </div>
+                  {currentUser.photoUrl ? (
+                    <img
+                      src={currentUser.photoUrl}
+                      alt={currentUser.name}
+                      className="w-9 h-9 rounded-xl object-cover border border-[#52B788]/40 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl bg-[#52B788]/20 border border-[#52B788]/40 flex items-center justify-center text-[#52B788] font-bold text-xs shrink-0">
+                      {currentUser.initials}
+                    </div>
+                  )}
                   <div className="overflow-hidden">
                     <p className="text-xs font-bold text-[#F4F1DE] truncate">{currentUser.name}</p>
                     <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>
                     <span className="inline-block mt-0.5 text-[9px] font-mono px-1.5 py-0.2 bg-[#52B788]/20 text-[#74C69D] rounded border border-[#52B788]/30">
-                      {currentUser.provider} Auth Active
+                      {currentUser.provider} Active
                     </span>
                   </div>
                 </div>
@@ -119,14 +184,11 @@ export function Navbar() {
 
                 {/* Switch Account / Sign Out */}
                 <button
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    setIsAuthModalOpen(true);
-                  }}
+                  onClick={handleSignOut}
                   className="w-full flex items-center space-x-2 p-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Switch Account / Sign In</span>
+                  <span>Switch Account / Sign Out</span>
                 </button>
               </div>
             )}
