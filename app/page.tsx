@@ -2,196 +2,195 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { HeartPulse, CheckCircle2, Vault, Users, ShieldCheck, ArrowRight, Lock, Sparkles } from "lucide-react";
-import { PassphraseModal } from "@/components/PassphraseModal";
-import { PhaseInfo } from "@/lib/state/heartbeatMachine";
+import { HeartPulse, CheckCircle2, Vault, Users, ShieldCheck, ArrowRight, Lock, Key, Sparkles, FileText, Briefcase } from "lucide-react";
+import { PhaseInfo, EscalationNotification } from "@/lib/state/heartbeatMachine";
 
-export default function SeniorHomePage() {
-  const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
-  const [masterKeyHex, setMasterKeyHex] = useState<string>("");
-  const [heartbeatData, setHeartbeatData] = useState<{
+export default function PeacefulHomePage() {
+  const [heartbeatState, setHeartbeatState] = useState<{
     simulatedElapsedDays: number;
     phaseInfo: PhaseInfo;
+    notifications: EscalationNotification[];
+    lastCheckInDate: string;
   } | null>(null);
-  const [itemCount, setItemCount] = useState(0);
-  const [beneficiaryCount, setBeneficiaryCount] = useState(0);
+
   const [checkInSuccess, setCheckInSuccess] = useState(false);
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
 
-  const fetchStats = async () => {
+  const fetchState = async () => {
     try {
-      const [hbRes, vaultRes, benRes] = await Promise.all([
-        fetch("/api/heartbeat"),
-        fetch("/api/vault"),
-        fetch("/api/beneficiaries"),
-      ]);
-
-      const hb = await hbRes.json();
-      const vault = await vaultRes.json();
-      const ben = await benRes.json();
-
-      if (hb.success) {
-        setHeartbeatData({
-          simulatedElapsedDays: hb.simulatedElapsedDays,
-          phaseInfo: hb.phaseInfo,
-        });
+      const res = await fetch("/api/heartbeat");
+      const data = await res.json();
+      if (data.success) {
+        setHeartbeatState(data);
       }
-      if (vault.success) setItemCount(vault.items.length);
-      if (ben.success) setBeneficiaryCount(ben.beneficiaries.length);
     } catch (err) {
-      console.error("Fetch stats error:", err);
+      console.error("Fetch state error:", err);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchState();
   }, []);
 
-  const handleOneTapCheckIn = async () => {
-    setIsCheckingIn(true);
+  const handleCheckIn = async () => {
+    setIsSubmittingCheckIn(true);
     try {
       const res = await fetch("/api/heartbeat", { method: "POST" });
       const data = await res.json();
       if (data.success) {
         setCheckInSuccess(true);
-        fetchStats();
         setTimeout(() => setCheckInSuccess(false), 3000);
+        fetchState();
       }
     } catch (err) {
       console.error("Check-in error:", err);
     } finally {
-      setIsCheckingIn(false);
+      setIsSubmittingCheckIn(false);
     }
   };
 
-  const daysRemaining = heartbeatData ? 365 - heartbeatData.simulatedElapsedDays : 365;
-
   return (
-    <div className="space-y-6">
-      {/* Session Unlock Modal */}
-      {!masterKey && (
-        <PassphraseModal
-          onMasterKeyDerived={(key, hex) => {
-            setMasterKey(key);
-            setMasterKeyHex(hex);
-          }}
-        />
-      )}
-
-      {/* Prominent One-Tap Check-In Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-[#101E17] via-[#0D1813] to-[#121A22] border-2 border-emerald-500/40 text-center space-y-4 shadow-[0_0_40px_rgba(16,185,129,0.15)] relative overflow-hidden">
-        <div className="flex items-center justify-center space-x-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-          <ShieldCheck className="w-4 h-4" />
-          <span>ZERO-INTRUSION SAFETY ENGINE</span>
-        </div>
-
-        <div>
-          <h1 className="text-2xl font-black text-white">Virasat Digital Estate Vault</h1>
-          <p className="text-sm text-gray-300 mt-1 max-w-xs mx-auto leading-relaxed">
-            No intrusive check-ins needed. Tap below anytime to confirm you are safe & well.
-          </p>
-        </div>
-
-        {/* Big 80px Senior One-Tap Button */}
-        <div className="pt-2">
-          <button
-            onClick={handleOneTapCheckIn}
-            disabled={isCheckingIn}
-            className="w-full py-5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-lg tracking-wide shadow-[0_0_35px_rgba(16,185,129,0.4)] transition-all transform hover:scale-[1.02] flex items-center justify-center space-x-3 cursor-pointer disabled:opacity-50"
-          >
-            <HeartPulse className="w-8 h-8 text-black animate-bounce" />
-            <span>{isCheckingIn ? "Recording Safety..." : "I AM SAFE & WELL"}</span>
-          </button>
-        </div>
-
-        {checkInSuccess && (
-          <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center space-x-2 animate-in fade-in duration-200">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>Safety Confirmed! Your 1-Year Silent Period is active.</span>
-          </div>
-        )}
-      </div>
-
-      {/* Clear Plain-English Status Card */}
-      <div className="p-5 rounded-2xl bg-[#0E101A] border border-white/10 space-y-3">
+    <div className="space-y-6 pb-6">
+      {/* Peaceful Status Hero Card */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-[#151C22] to-[#12161A] border border-[#52B788]/20 p-6 rounded-[32px] shadow-2xl space-y-6">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">Vault Status</span>
-          <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
-            SILENT & PROTECTED
+          <div className="flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#52B788] animate-ping" />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#52B788]">
+              MY STATUS
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-gray-400">
+            {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
 
-        <div className="flex items-baseline space-x-2">
-          <span className="text-3xl font-black text-white font-mono">{daysRemaining} Days</span>
-          <span className="text-xs text-gray-400">until next automated check-in prompt</span>
+        {/* Ambient Heartbeat Wave Visual */}
+        <div className="h-16 flex items-center justify-center relative my-2">
+          <svg className="w-full h-full text-[#52B788]/40 overflow-visible" viewBox="0 0 400 60" preserveAspectRatio="none">
+            <path
+              d="M0,30 Q50,30 80,30 T120,30 T140,10 T160,50 T180,20 T200,40 T220,30 T300,30 T400,30"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="drop-shadow-[0_0_10px_rgba(82,183,136,0.6)]"
+            />
+          </svg>
         </div>
 
-        {/* 1-Year Simple Progress Bar */}
-        <div className="w-full h-3 bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-md"
-            style={{ width: `${Math.min(100, ((heartbeatData?.simulatedElapsedDays || 0) / 365) * 100)}%` }}
-          />
+        {/* 1-Tap Primary Check-In Pill Button */}
+        <button
+          onClick={handleCheckIn}
+          disabled={isSubmittingCheckIn}
+          className={`w-full py-4 px-6 rounded-2xl font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer shadow-[0_0_25px_rgba(82,183,136,0.3)] ${
+            checkInSuccess
+              ? "bg-emerald-400 text-black scale-105"
+              : "bg-gradient-to-r from-[#52B788] to-[#74C69D] hover:from-[#40A073] hover:to-[#52B788] text-[#0F1317]"
+          }`}
+        >
+          <CheckCircle2 className="w-5 h-5" />
+          <span>{checkInSuccess ? "CHECK-IN CONFIRMED!" : isSubmittingCheckIn ? "CONFIRMING..." : "I AM SAFE & WELL"}</span>
+        </button>
+
+        <div className="text-center text-xs text-gray-400 space-y-1">
+          <p>Last check-in: {heartbeatState ? new Date(heartbeatState.lastCheckInDate).toLocaleTimeString() : "Just now"}</p>
+          <p className="text-[#52B788] font-bold text-[11px]">Phase 0: Silent & Secure • 0 Notifications Sent</p>
         </div>
       </div>
 
-      {/* Two Main Action Cards for Senior Access */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Quick Access Grid (4 Peaceful Cards) */}
+      <div className="grid grid-cols-2 gap-3">
         <Link
           href="/vault"
-          className="p-5 rounded-2xl bg-[#0D0F18] border border-white/10 hover:border-amber-500/40 transition-all group space-y-3 block"
+          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
         >
-          <div className="flex items-center justify-between">
-            <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/30 text-amber-400">
-              <Vault className="w-6 h-6" />
-            </div>
-            <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-              {itemCount} Secrets
-            </span>
+          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
+            <Vault className="w-5 h-5" />
           </div>
-
           <div>
-            <h3 className="text-base font-bold text-white group-hover:text-amber-400 transition-colors">
-              My Family Chest
+            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
+              FINANCIAL ASSETS
             </h3>
-            <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-              Confidential bank passcodes, house deeds, and family messages.
-            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Bank Passwords & Crypto</p>
           </div>
+        </Link>
 
-          <div className="flex items-center text-xs font-bold text-amber-400 space-x-1 pt-1">
-            <span>Open Family Chest</span>
-            <ArrowRight className="w-4 h-4" />
+        <Link
+          href="/vault"
+          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
+        >
+          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
+              PERSONAL LEGACY
+            </h3>
+            <p className="text-[10px] text-gray-400 mt-0.5">Confidential Notes & Messages</p>
           </div>
         </Link>
 
         <Link
           href="/beneficiaries"
-          className="p-5 rounded-2xl bg-[#0D0F18] border border-white/10 hover:border-sky-500/40 transition-all group space-y-3 block"
+          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
         >
-          <div className="flex items-center justify-between">
-            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/30 text-sky-400">
-              <Users className="w-6 h-6" />
-            </div>
-            <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
-              {beneficiaryCount} Heirs
-            </span>
+          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
+            <Users className="w-5 h-5" />
           </div>
-
           <div>
-            <h3 className="text-base font-bold text-white group-hover:text-sky-400 transition-colors">
-              My Trusted Loved Ones
+            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
+              LOVED ONES & HEIRS
             </h3>
-            <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-              Designate family members who will receive access after 12 months.
-            </p>
-          </div>
-
-          <div className="flex items-center text-xs font-bold text-sky-400 space-x-1 pt-1">
-            <span>Manage Loved Ones</span>
-            <ArrowRight className="w-4 h-4" />
+            <p className="text-[10px] text-gray-400 mt-0.5">Estate Executors</p>
           </div>
         </Link>
+
+        <Link
+          href="/vault"
+          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
+        >
+          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
+              LEGAL DOCUMENTS
+            </h3>
+            <p className="text-[10px] text-gray-400 mt-0.5">Wills & Trust PDFs</p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Recent Activity Card */}
+      <div className="p-5 rounded-3xl bg-[#151A20] border border-white/10 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">Recent Activity</h3>
+          <Link href="/audit" className="text-[11px] text-[#52B788] hover:underline font-mono">
+            View Audit Log
+          </Link>
+        </div>
+
+        <div className="space-y-2">
+          <div className="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center space-x-3 text-xs">
+            <div className="p-2 rounded-xl bg-[#52B788]/15 text-[#52B788]">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Vault Security & Zero-Knowledge State Active</p>
+              <p className="text-[10px] text-gray-400 font-mono">100% Client-Encrypted</p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center space-x-3 text-xs">
+            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Heartbeat Confirmation Recorded</p>
+              <p className="text-[10px] text-gray-400 font-mono">Timer reset for 365 days</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -77,14 +77,14 @@ export default function SeniorVaultPage() {
       />
 
       {/* Header */}
-      <div className="bg-[#0E101B] border border-white/10 p-5 rounded-2xl shadow-xl flex flex-col space-y-3">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/30 text-amber-400">
+      <div className="bg-[#151A20] border border-emerald-500/20 p-6 rounded-[32px] shadow-xl flex flex-col space-y-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="p-3.5 bg-[#52B788]/15 rounded-2xl border border-[#52B788]/30 text-[#52B788]">
             <Vault className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white">My Family Chest</h1>
-            <p className="text-xs text-amber-400 font-medium">
+            <h1 className="text-xl font-black text-[#F4F1DE]">My Family Chest</h1>
+            <p className="text-xs text-[#52B788] font-medium">
               Encrypted & Safe • Tap any item to edit, view or manage attachments
             </p>
           </div>
@@ -92,7 +92,7 @@ export default function SeniorVaultPage() {
 
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-black font-black text-xs tracking-wide transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] flex items-center justify-center space-x-2 cursor-pointer"
+          className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-[#52B788] to-[#74C69D] hover:from-[#40A073] hover:to-[#52B788] text-[#0F1317] font-black text-xs tracking-wide transition-all shadow-[0_0_20px_rgba(82,183,136,0.3)] flex items-center justify-center space-x-2 cursor-pointer"
         >
           <Plus className="w-5 h-5" />
           <span>Add New Password or Confidential Note</span>
@@ -102,7 +102,7 @@ export default function SeniorVaultPage() {
       {/* Items List */}
       <div className="space-y-4">
         {items.length === 0 ? (
-          <div className="p-8 text-center bg-[#0C0E16] border border-white/5 rounded-2xl space-y-3">
+          <div className="p-8 text-center bg-[#151A20] border border-white/5 rounded-3xl space-y-3">
             <Lock className="w-10 h-10 text-gray-500 mx-auto" />
             <h3 className="text-base font-bold text-white">Your Chest is Empty</h3>
             <p className="text-xs text-gray-400">
@@ -110,7 +110,7 @@ export default function SeniorVaultPage() {
             </p>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 bg-amber-500 text-black text-xs font-bold rounded-xl mt-2 cursor-pointer"
+              className="px-4 py-2.5 bg-[#52B788] text-[#0F1317] text-xs font-bold rounded-xl mt-2 cursor-pointer"
             >
               Add First Secret
             </button>
@@ -120,21 +120,21 @@ export default function SeniorVaultPage() {
             {items.map((item) => (
               <div
                 key={item.id}
-                className="p-4 rounded-2xl bg-[#0D0F18] border border-white/10 hover:border-amber-500/30 transition-all space-y-3 shadow-md"
+                className="p-4.5 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 shadow-md"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400">
+                  <div className="flex items-center space-x-3.5">
+                    <div className="p-3 bg-[#52B788]/15 rounded-2xl border border-[#52B788]/20 text-[#52B788]">
                       <FileText className="w-5 h-5" />
                     </div>
                     <div>
                       <h3 className="font-bold text-white text-base">{item.title}</h3>
-                      <div className="flex items-center space-x-2 mt-0.5">
-                        <span className="inline-block px-2 py-0.5 rounded bg-white/10 text-amber-300 text-[10px] font-mono">
+                      <div className="flex items-center space-x-2 mt-1">
+                        <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/10 text-[#74C69D] text-[10px] font-mono">
                           {item.category}
                         </span>
                         {!item.mimeType.startsWith("text/") && (
-                          <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30">
+                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-[#52B788]/20 text-[#74C69D] text-[10px] font-mono border border-[#52B788]/30">
                             📎 Attachment
                           </span>
                         )}
@@ -144,7 +144,7 @@ export default function SeniorVaultPage() {
 
                   <button
                     onClick={() => handleDeleteItem(item.id)}
-                    className="p-2 text-gray-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 cursor-pointer"
+                    className="p-2 text-gray-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/10 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -152,7 +152,7 @@ export default function SeniorVaultPage() {
 
                 <button
                   onClick={() => setSelectedItemForEdit(item)}
-                  className="w-full py-3 px-4 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                  className="w-full py-3 px-4 rounded-2xl bg-[#52B788]/15 hover:bg-[#52B788]/25 text-[#74C69D] border border-[#52B788]/30 text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <Eye className="w-4 h-4" />
                   <span>Edit & Manage Secret</span>
