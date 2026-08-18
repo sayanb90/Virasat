@@ -51,105 +51,90 @@ export function TimeMachineControl({ currentElapsedDays, onUpdate }: TimeMachine
   };
 
   return (
-    <div className="bg-[#10121D] border border-amber-500/30 rounded-3xl p-6 shadow-2xl space-y-6">
-      {/* Header & Primary Check-In */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/30 text-amber-400">
-            <Zap className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <h3 className="text-base font-extrabold text-white">Escalation Time-Machine Simulator</h3>
-            <p className="text-xs text-gray-400">
-              Fast-forward simulated time to test 1-year escalation triggers and email dispatches.
-            </p>
-          </div>
+    <div className="bg-white border border-slate-200 rounded-[28px] p-6 shadow-sm space-y-5">
+      {/* Header */}
+      <div className="space-y-1 border-b border-slate-100 pb-4">
+        <div className="flex items-center space-x-2">
+          <Zap className="w-5 h-5 text-amber-600" />
+          <h3 className="text-sm font-extrabold text-slate-900">
+            Testing & Simulation Mode
+          </h3>
         </div>
-
-        <button
-          onClick={handleHeartbeatCheckIn}
-          disabled={loading}
-          className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-xs rounded-2xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer disabled:opacity-50 shrink-0"
-        >
-          <CheckCircle2 className="w-5 h-5" />
-          <span>I AM ALIVE (Reset 365-Day Timer)</span>
-        </button>
+        <p className="text-xs text-slate-500">
+          Fast-forward simulated time to test how Virasat handles 9 months of silence and estate transfer.
+        </p>
       </div>
 
-      {/* Fast-Forward Preset Buttons Grid (Responsive 2-col on mobile / 3-col on desktop) */}
-      <div className="space-y-2">
-        <label className="block text-xs font-bold text-gray-300">
-          Fast-Forward Simulator Presets:
+      {/* Primary Reset Action */}
+      <button
+        onClick={handleHeartbeatCheckIn}
+        disabled={loading}
+        className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+      >
+        <CheckCircle2 className="w-4 h-4" />
+        <span>Confirm Safety & Reset Timer to Day 0</span>
+      </button>
+
+      {/* Simulator Actions List (Clean Vertical Stack with Zero Overflow) */}
+      <div className="space-y-2.5">
+        <label className="block text-xs font-bold text-slate-700">
+          Fast-Forward Time Simulator:
         </label>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <button
             onClick={() => handleSimulate("advance", 30)}
             disabled={loading}
-            className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-left transition-all cursor-pointer flex items-center space-x-3"
+            className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-all cursor-pointer flex items-center space-x-3"
           >
-            <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400">
+            <div className="p-2 rounded-lg bg-sky-100 text-sky-700 shrink-0">
               <FastForward className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-white text-xs block">+30 Days</span>
-              <span className="text-[10px] text-gray-400">Advance 1 Month</span>
+              <span className="font-bold text-slate-900 text-xs block">+30 Days</span>
+              <span className="text-[10px] text-slate-500">Advance 1 Month</span>
             </div>
           </button>
 
           <button
             onClick={() => handleSimulate("set", 270)}
             disabled={loading}
-            className="p-3.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-2xl text-left transition-all cursor-pointer flex items-center space-x-3"
+            className="p-3 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl text-left transition-all cursor-pointer flex items-center space-x-3"
           >
-            <div className="p-2.5 rounded-xl bg-sky-500/20 text-sky-300">
+            <div className="p-2 rounded-lg bg-sky-200 text-sky-800 shrink-0">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-sky-200 text-xs block">Month 9 (Day 270)</span>
-              <span className="text-[10px] text-sky-300/80">Phase 1 Reminders</span>
+              <span className="font-bold text-sky-950 text-xs block">Month 9 (Day 270)</span>
+              <span className="text-[10px] text-sky-700">Phase 1 Reminders</span>
             </div>
           </button>
 
           <button
             onClick={() => handleSimulate("set", 330)}
             disabled={loading}
-            className="p-3.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-2xl text-left transition-all cursor-pointer flex items-center space-x-3"
+            className="p-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-left transition-all cursor-pointer flex items-center space-x-3"
           >
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300">
+            <div className="p-2 rounded-lg bg-amber-200 text-amber-800 shrink-0">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-amber-200 text-xs block">Month 11 (Day 330)</span>
-              <span className="text-[10px] text-amber-300/80">Phase 2 Escalation</span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => handleSimulate("set", 345)}
-            disabled={loading}
-            className="p-3.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-2xl text-left transition-all cursor-pointer flex items-center space-x-3"
-          >
-            <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-300">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-bold text-rose-200 text-xs block">Month 11.5 (Day 345)</span>
-              <span className="text-[10px] text-rose-300/80">Phase 3 Countdown</span>
+              <span className="font-bold text-amber-950 text-xs block">Month 11 (Day 330)</span>
+              <span className="text-[10px] text-amber-700">Phase 2 Escalation</span>
             </div>
           </button>
 
           <button
             onClick={() => handleSimulate("set", 365)}
             disabled={loading}
-            className="p-3.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-2xl text-left transition-all cursor-pointer flex items-center space-x-3 sm:col-span-2 md:col-span-2"
+            className="p-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl text-left transition-all cursor-pointer flex items-center space-x-3"
           >
-            <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300">
-              <Zap className="w-4 h-4" />
+            <div className="p-2 rounded-lg bg-purple-200 text-purple-800 shrink-0">
+              <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-purple-200 text-xs block">Month 12+ (Day 365+)</span>
-              <span className="text-[10px] text-purple-300/80">Phase 4 Release Chest Keys to Heirs</span>
+              <span className="font-bold text-purple-950 text-xs block">Month 12+ (Day 365+)</span>
+              <span className="text-[10px] text-purple-700">Phase 4 Estate Release</span>
             </div>
           </button>
         </div>

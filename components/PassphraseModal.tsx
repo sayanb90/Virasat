@@ -1,89 +1,116 @@
 "use client";
 
 import React, { useState } from "react";
-import { KeyRound, ShieldCheck, Lock, Fingerprint, ArrowRight } from "lucide-react";
 import { deriveMasterKey } from "@/lib/crypto/argon2";
+import { Key, Lock, Eye, EyeOff, ShieldCheck, AlertTriangle } from "lucide-react";
 
 interface PassphraseModalProps {
-  onMasterKeyDerived: (key: CryptoKey, keyHex: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onKeyDerived: (key: CryptoKey) => void;
 }
 
-export function PassphraseModal({ onMasterKeyDerived }: PassphraseModalProps) {
-  const [passphrase, setPassphrase] = useState("VirasatMaster2026!#");
-  const [isDeriving, setIsDeriving] = useState(false);
+export function PassphraseModal({ isOpen, onClose, onKeyDerived }: PassphraseModalProps) {
+  const [passphrase, setPassphrase] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleUnlock = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!passphrase) return;
+  if (!isOpen) return null;
 
-    setIsDeriving(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passphrase || passphrase.length < 8) {
+      setError("Passphrase must be at least 8 characters.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
     try {
-      const derived = await deriveMasterKey(passphrase, "e4f81c90a1b2c3d4e5f6");
-      onMasterKeyDerived(derived.key, derived.keyRawHex);
-    } catch (err) {
-      console.error("Unlock failed:", err);
+      // In production, each user has their salt stored in mock DB. Default salt used for demo.
+      const defaultSalt = "e4f81c90a1b2c3d4e5f6a7b8c9d0e1f2";
+      const { key } = await deriveMasterKey(passphrase, defaultSalt);
+      onKeyDerived(key);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to derive Master Key.");
     } finally {
-      setIsDeriving(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="bg-[#121422] border-2 border-emerald-500/40 rounded-3xl max-w-sm w-full p-6 shadow-[0_0_80px_rgba(16,185,129,0.2)] text-center space-y-6">
-        {/* Friendly Header */}
-        <div className="space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Lock className="w-8 h-8" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white border border-slate-200 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-5">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-800">
+            <Key className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white">Welcome Back</h2>
-            <p className="text-xs text-emerald-400 font-medium mt-1">
-              Enter your master passphrase or tap biometric unlock to open your private chest.
+            <h3 className="text-base font-extrabold text-slate-900">Unlock Master Key</h3>
+            <p className="text-xs text-slate-500">
+              Derive K_master via WebCrypto PBKDF2.
             </p>
           </div>
         </div>
 
-        {/* Biometrics Quick Unlock Button for Seniors */}
-        <button
-          onClick={() => handleUnlock()}
-          disabled={isDeriving}
-          className="w-full p-4 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-sm flex items-center justify-center space-x-3 transition-all cursor-pointer shadow-lg"
-        >
-          <Fingerprint className="w-7 h-7 text-emerald-400 animate-pulse" />
-          <span>Touch ID / Face ID Quick Unlock</span>
-        </button>
+        {error && (
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-        <div className="relative flex items-center justify-center">
-          <div className="border-t border-white/10 w-full" />
-          <span className="bg-[#121422] px-3 text-[11px] text-gray-400 uppercase font-mono">
-            Or Passphrase
-          </span>
-        </div>
-
-        <form onSubmit={handleUnlock} className="space-y-4 text-left">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-200 mb-1.5 flex items-center space-x-1.5">
-              <KeyRound className="w-4 h-4 text-amber-400" />
-              <span>Passphrase</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Master Vault Passphrase
             </label>
-            <input
-              type="password"
-              required
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Enter passphrase..."
-              className="w-full px-4 py-3.5 rounded-xl bg-black/60 border-2 border-white/20 text-white font-mono text-base focus:border-emerald-500 focus:outline-none transition-all"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="Enter your master passphrase..."
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Tip for testing: Type any 8+ character passphrase.
+            </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={isDeriving}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black text-sm tracking-wide transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-          >
-            <span>{isDeriving ? "Opening Vault..." : "Unlock Vault Session"}</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-start space-x-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span>Zero-Knowledge: Your passphrase is never sent to our servers. Key derivation runs strictly in your local browser.</span>
+          </div>
+
+          <div className="flex items-center space-x-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-1/2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              {loading ? "Deriving Key..." : "Unlock Vault"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

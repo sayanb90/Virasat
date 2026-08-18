@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { HeartPulse, CheckCircle2, Vault, Users, ShieldCheck, ArrowRight, Lock, Key, Sparkles, FileText, Briefcase } from "lucide-react";
+import { CheckCircle2, Vault, Users, ShieldCheck, FileText, Sparkles, HeartPulse, ChevronRight } from "lucide-react";
 import { PhaseInfo, EscalationNotification } from "@/lib/state/heartbeatMachine";
 
-export default function PeacefulHomePage() {
+export default function SeniorFriendlyHomePage() {
   const [heartbeatState, setHeartbeatState] = useState<{
     simulatedElapsedDays: number;
     phaseInfo: PhaseInfo;
@@ -50,146 +50,165 @@ export default function PeacefulHomePage() {
   };
 
   return (
-    <div className="space-y-6 pb-6">
-      {/* Peaceful Status Hero Card */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#151C22] to-[#12161A] border border-[#52B788]/20 p-6 rounded-[32px] shadow-2xl space-y-5">
+    <div className="space-y-5 pb-8">
+      {/* Primary Senior Safety Status Card */}
+      <div className="bg-white border border-slate-200/90 rounded-[28px] p-6 shadow-sm space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#52B788] animate-ping" />
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#52B788]">
-              MY STATUS
+            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+              Protection Active
             </span>
           </div>
-          <span className="text-[11px] font-mono text-gray-400">
-            {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          <span className="text-xs text-slate-500 font-medium">
+            {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
           </span>
         </div>
 
-        {/* Ambient Heartbeat Wave Visual - Constrained Height & Zero Overlap */}
-        <div className="h-10 w-full flex items-center justify-center overflow-hidden my-1">
-          <svg className="w-full h-8 text-[#52B788]/50" viewBox="0 0 400 40" preserveAspectRatio="none">
-            <path
-              d="M0,20 Q60,20 100,20 T140,20 T155,6 T170,34 T185,12 T200,26 T215,20 T300,20 T400,20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              className="drop-shadow-[0_0_8px_rgba(82,183,136,0.5)]"
-            />
-          </svg>
+        {/* Reassuring Status Banner */}
+        <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-100 flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="font-extrabold text-slate-900 text-sm">All Safe & Protected</h3>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Virasat operates silently. We won&apos;t disturb you for the next 9 months.
+            </p>
+          </div>
         </div>
 
-        {/* 1-Tap Primary Check-In Pill Button */}
+        {/* Large 1-Tap "I AM SAFE & WELL" Button */}
         <button
           onClick={handleCheckIn}
           disabled={isSubmittingCheckIn}
-          className={`w-full py-4 px-6 rounded-2xl font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center space-x-2 cursor-pointer shadow-[0_0_25px_rgba(82,183,136,0.35)] ${
+          className={`w-full py-4.5 px-6 rounded-2xl font-black text-base tracking-wide transition-all duration-200 flex items-center justify-center space-x-3 cursor-pointer shadow-md ${
             checkInSuccess
-              ? "bg-emerald-400 text-black scale-105"
-              : "bg-gradient-to-r from-[#52B788] to-[#74C69D] hover:from-[#40A073] hover:to-[#52B788] text-[#0F1317]"
+              ? "bg-emerald-600 text-white scale-[1.02] shadow-emerald-600/30"
+              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 active:scale-[0.98]"
           }`}
         >
-          <CheckCircle2 className="w-5 h-5 shrink-0" />
-          <span>{checkInSuccess ? "CHECK-IN CONFIRMED!" : isSubmittingCheckIn ? "CONFIRMING..." : "I AM SAFE & WELL"}</span>
+          <CheckCircle2 className="w-6 h-6 shrink-0" />
+          <span>{checkInSuccess ? "Check-In Confirmed!" : isSubmittingCheckIn ? "Confirming..." : "I AM SAFE & WELL"}</span>
         </button>
 
-        <div className="text-center text-xs text-gray-400 space-y-1 pt-1">
-          <p>Last check-in: {heartbeatState ? new Date(heartbeatState.lastCheckInDate).toLocaleTimeString() : "Just now"}</p>
-          <p className="text-[#52B788] font-bold text-[11px]">Phase 0: Silent & Secure • 0 Notifications Sent</p>
+        <div className="text-center text-xs text-slate-500">
+          Last confirmed: {heartbeatState ? new Date(heartbeatState.lastCheckInDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Today"}
         </div>
       </div>
 
-      {/* Quick Access Grid (4 Peaceful Cards) */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          href="/vault"
-          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
-        >
-          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
-            <Vault className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
-              FINANCIAL ASSETS
-            </h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Bank Passwords & Crypto</p>
-          </div>
-        </Link>
+      {/* Quick Access to Estate Items (4 Clean Cards) */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1">
+          Your Digital Chest
+        </h3>
 
-        <Link
-          href="/vault"
-          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
-        >
-          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
-              PERSONAL LEGACY
-            </h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Confidential Notes & Messages</p>
-          </div>
-        </Link>
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/vault"
+            className="p-4.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/50 hover:shadow-md transition-all space-y-3 group shadow-xs"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100">
+              <Vault className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                Financial Assets
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">Bank logins & crypto</p>
+            </div>
+          </Link>
 
-        <Link
-          href="/beneficiaries"
-          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
-        >
-          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
-              LOVED ONES & HEIRS
-            </h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Estate Executors</p>
-          </div>
-        </Link>
+          <Link
+            href="/vault"
+            className="p-4.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/50 hover:shadow-md transition-all space-y-3 group shadow-xs"
+          >
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-100">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                Personal Notes
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">Letters & passwords</p>
+            </div>
+          </Link>
 
-        <Link
-          href="/vault"
-          className="p-4 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 group shadow-md"
-        >
-          <div className="p-2.5 w-10 h-10 rounded-2xl bg-[#52B788]/15 text-[#52B788] flex items-center justify-center">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-white text-xs group-hover:text-[#52B788] transition-colors">
-              LEGAL DOCUMENTS
-            </h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Wills & Trust PDFs</p>
-          </div>
-        </Link>
-      </div>
+          <Link
+            href="/beneficiaries"
+            className="p-4.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/50 hover:shadow-md transition-all space-y-3 group shadow-xs"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                Loved Ones
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">Designated heirs</p>
+            </div>
+          </Link>
 
-      {/* Recent Activity Card */}
-      <div className="p-5 rounded-3xl bg-[#151A20] border border-white/10 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">Recent Activity</h3>
-          <Link href="/audit" className="text-[11px] text-[#52B788] hover:underline font-mono">
-            View Audit Log
+          <Link
+            href="/vault"
+            className="p-4.5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/50 hover:shadow-md transition-all space-y-3 group shadow-xs"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                Legal Documents
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">Wills & trust PDFs</p>
+            </div>
           </Link>
         </div>
+      </div>
 
-        <div className="space-y-2">
-          <div className="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center space-x-3 text-xs">
-            <div className="p-2 rounded-xl bg-[#52B788]/15 text-[#52B788]">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-bold text-white">Vault Security & Zero-Knowledge State Active</p>
-              <p className="text-[10px] text-gray-400 font-mono">100% Client-Encrypted</p>
-            </div>
+      {/* Simple "How Virasat Protects You" Explainer */}
+      <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          How Virasat Protects You
+        </h3>
+
+        <div className="space-y-3 text-xs">
+          <div className="flex items-start space-x-3">
+            <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 mt-0.5">
+              1
+            </span>
+            <p className="text-slate-700 leading-relaxed">
+              <strong className="text-slate-900">Complete Silence (0–9 Months):</strong> We operate quietly and never spam you with daily prompts.
+            </p>
           </div>
 
-          <div className="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center space-x-3 text-xs">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-bold text-white">Heartbeat Confirmation Recorded</p>
-              <p className="text-[10px] text-gray-400 font-mono">Timer reset for 365 days</p>
-            </div>
+          <div className="flex items-start space-x-3">
+            <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-800 font-bold flex items-center justify-center shrink-0 mt-0.5">
+              2
+            </span>
+            <p className="text-slate-700 leading-relaxed">
+              <strong className="text-slate-900">Gentle Reminder (9–11 Months):</strong> If you are away, we send gentle check-in emails before escalating.
+            </p>
           </div>
+
+          <div className="flex items-start space-x-3">
+            <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center shrink-0 mt-0.5">
+              3
+            </span>
+            <p className="text-slate-700 leading-relaxed">
+              <strong className="text-slate-900">Safe Delivery (12+ Months):</strong> If you don&apos;t check in after a full year, your chest is securely delivered to your loved ones.
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-1">
+          <Link
+            href="/heartbeat"
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center space-x-1"
+          >
+            <span>Learn more about safety cycle</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
     </div>

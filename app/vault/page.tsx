@@ -1,167 +1,188 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Vault, Plus, Lock, Eye, Trash2, FileText, ShieldCheck } from "lucide-react";
+import { VaultItemRecord } from "@/lib/state/mockDatabase";
 import { PassphraseModal } from "@/components/PassphraseModal";
 import { AddVaultItemModal } from "@/components/AddVaultItemModal";
 import { SecretEditorModal } from "@/components/SecretEditorModal";
-import { VaultItemRecord } from "@/lib/state/mockDatabase";
+import { Key, Lock, Plus, FileText, ShieldCheck, Edit3 } from "lucide-react";
+import { decryptAndUnpackSecretPayload, UnpackedSecretResult } from "@/lib/crypto/payloadCodec";
 
-export default function SeniorVaultPage() {
-  const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
-  const [masterKeyHex, setMasterKeyHex] = useState<string>("");
+export default function VaultPage() {
   const [items, setItems] = useState<VaultItemRecord[]>([]);
-  const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
+  const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
+  const [isPassphraseModalOpen, setIsPassphraseModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedItemForEdit, setSelectedItemForEdit] = useState<VaultItemRecord | null>(null);
+  const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
+  const [activeEditorItem, setActiveEditorItem] = useState<VaultItemRecord | null>(null);
+  const [decryptedCache, setDecryptedCache] = useState<Record<string, UnpackedSecretResult>>({});
+  const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchItems = async () => {
     try {
-      const [vRes, bRes] = await Promise.all([fetch("/api/vault"), fetch("/api/beneficiaries")]);
-      const vData = await vRes.json();
-      const bData = await bRes.json();
-
-      if (vData.success) {
-        setItems(vData.items);
+      const res = await fetch("/api/vault");
+      const data = await res.json();
+      if (data.success) {
+        setItems(data.items);
       }
-      if (bData.success) setBeneficiaries(bData.beneficiaries);
     } catch (err) {
-      console.error("Vault fetch error:", err);
+      console.error("Fetch items error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchItems();
   }, []);
 
-  const handleDeleteItem = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this item from your chest?")) return;
+  const handleKeyDerived = (key: CryptoKey) => {
+    setMasterKey(key);
+  };
+
+  const handleOpenItem = async (item: VaultItemRecord) => {
+    if (!masterKey) {
+      setIsPassphraseModalOpen(true);
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/vault?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchData();
-    } catch (err) {
-      console.error("Delete error:", err);
+      const result = await decryptAndUnpackSecretPayload(item.ciphertextHex, item.ivHex, masterKey);
+
+      setDecryptedCache((prev) => ({
+        ...prev,
+        [item.id]: result,
+      }));
+
+      setActiveEditorItem(item);
+      setIsEditorModalOpen(true);
+    } catch (err: any) {
+      console.error("Decryption error:", err);
+      alert("Failed to decrypt item with current Master Key.");
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Session Unlock Modal */}
-      {!masterKey && (
-        <PassphraseModal
-          onMasterKeyDerived={(key, hex) => {
-            setMasterKey(key);
-            setMasterKeyHex(hex);
+    <div className="space-y-6 pb-12">
+      {/* Header & Master Key State */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+            <Lock className="w-6 h-6 text-emerald-600" />
+            <span>My Family Chest</span>
+          </h2>
+          <p className="text-xs text-slate-500">
+            Encrypted with zero-knowledge AES-256-GCM.
+          </p>
+        </div>
+
+        {masterKey ? (
+          <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Vault Unlocked</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsPassphraseModalOpen(true)}
+            className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <Key className="w-4 h-4" />
+            <span>Unlock Vault</span>
+          </button>
+        )}
+      </div>
+
+      {/* Add New Item Button */}
+      <button
+        onClick={() => {
+          if (!masterKey) {
+            setIsPassphraseModalOpen(true);
+          } else {
+            setIsAddModalOpen(true);
+          }
+        }}
+        className="w-full py-4 px-4 rounded-2xl bg-white hover:bg-slate-50 border-2 border-dashed border-slate-300 text-slate-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-2xs hover:border-emerald-500 hover:text-emerald-700"
+      >
+        <Plus className="w-5 h-5 text-emerald-600" />
+        <span>Add New Asset, Password, or Document</span>
+      </button>
+
+      {/* Vault Items Grid */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-12 text-center text-xs text-slate-500 bg-white border border-slate-200 rounded-3xl p-6">
+            <p className="font-bold text-slate-800 text-sm">Your chest is empty</p>
+            <p className="mt-1">Add your first secret or document to protect your digital legacy.</p>
+          </div>
+        ) : (
+          items.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => handleOpenItem(item)}
+              className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/60 hover:shadow-md transition-all cursor-pointer group shadow-xs space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-emerald-800 transition-colors">
+                      {item.title}
+                    </h3>
+                    <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {item.category}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button className="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200 transition-all text-xs font-bold flex items-center space-x-1.5">
+                    <Edit3 className="w-4 h-4" />
+                    <span>View / Edit</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Modals */}
+      <PassphraseModal
+        isOpen={isPassphraseModalOpen}
+        onClose={() => setIsPassphraseModalOpen(false)}
+        onKeyDerived={handleKeyDerived}
+      />
+
+      <AddVaultItemModal
+        isOpen={isAddModalOpen}
+        masterKey={masterKey}
+        onClose={() => setIsAddModalOpen(false)}
+        onItemAdded={fetchItems}
+      />
+
+      {activeEditorItem && masterKey && (
+        <SecretEditorModal
+          isOpen={isEditorModalOpen}
+          item={activeEditorItem}
+          masterKey={masterKey}
+          initialResult={decryptedCache[activeEditorItem.id]}
+          onClose={() => {
+            setIsEditorModalOpen(false);
+            setActiveEditorItem(null);
+          }}
+          onSaveSuccess={() => {
+            setIsEditorModalOpen(false);
+            setActiveEditorItem(null);
+            fetchItems();
           }}
         />
       )}
-
-      {/* Add Vault Item Modal */}
-      {isAddModalOpen && (
-        <AddVaultItemModal
-          masterKey={masterKey}
-          beneficiaries={beneficiaries}
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={fetchData}
-        />
-      )}
-
-      {/* Interactive Encrypted Secret Editor & Attachment Modal */}
-      <SecretEditorModal
-        item={selectedItemForEdit}
-        masterKey={masterKey}
-        beneficiaries={beneficiaries}
-        onClose={() => setSelectedItemForEdit(null)}
-        onSuccess={fetchData}
-      />
-
-      {/* Header */}
-      <div className="bg-[#151A20] border border-emerald-500/20 p-6 rounded-[32px] shadow-xl flex flex-col space-y-4">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3.5 bg-[#52B788]/15 rounded-2xl border border-[#52B788]/30 text-[#52B788]">
-            <Vault className="w-7 h-7" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-[#F4F1DE]">My Family Chest</h1>
-            <p className="text-xs text-[#52B788] font-medium">
-              Encrypted & Safe • Tap any item to edit, view or manage attachments
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-[#52B788] to-[#74C69D] hover:from-[#40A073] hover:to-[#52B788] text-[#0F1317] font-black text-xs tracking-wide transition-all shadow-[0_0_20px_rgba(82,183,136,0.3)] flex items-center justify-center space-x-2 cursor-pointer"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Add New Password or Confidential Note</span>
-        </button>
-      </div>
-
-      {/* Items List */}
-      <div className="space-y-4">
-        {items.length === 0 ? (
-          <div className="p-8 text-center bg-[#151A20] border border-white/5 rounded-3xl space-y-3">
-            <Lock className="w-10 h-10 text-gray-500 mx-auto" />
-            <h3 className="text-base font-bold text-white">Your Chest is Empty</h3>
-            <p className="text-xs text-gray-400">
-              Add your first confidential password, legal document, or personal message.
-            </p>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2.5 bg-[#52B788] text-[#0F1317] text-xs font-bold rounded-xl mt-2 cursor-pointer"
-            >
-              Add First Secret
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="p-4.5 rounded-3xl bg-[#151A20] border border-white/10 hover:border-[#52B788]/40 transition-all space-y-3 shadow-md"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3.5">
-                    <div className="p-3 bg-[#52B788]/15 rounded-2xl border border-[#52B788]/20 text-[#52B788]">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-white text-base">{item.title}</h3>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/10 text-[#74C69D] text-[10px] font-mono">
-                          {item.category}
-                        </span>
-                        {!item.mimeType.startsWith("text/") && (
-                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-[#52B788]/20 text-[#74C69D] text-[10px] font-mono border border-[#52B788]/30">
-                            📎 Attachment
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="p-2 text-gray-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/10 cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setSelectedItemForEdit(item)}
-                  className="w-full py-3 px-4 rounded-2xl bg-[#52B788]/15 hover:bg-[#52B788]/25 text-[#74C69D] border border-[#52B788]/30 text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>Edit & Manage Secret</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

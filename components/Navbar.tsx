@@ -85,25 +85,25 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { href: "/vault", label: "My Family Chest", icon: Vault, desc: "Encrypted Vault Items" },
+    { href: "/vault", label: "My Family Chest", icon: Vault, desc: "Passwords, Notes & Documents" },
     { href: "/beneficiaries", label: "Loved Ones & Heirs", icon: Users, desc: "Designated Beneficiaries" },
-    { href: "/heartbeat", label: "Safety Status & Simulation", icon: HeartPulse, desc: "Dead Man's Switch" },
-    { href: "/audit", label: "Audit Security Log", icon: ShieldCheck, desc: "Zero-Knowledge Logs" },
+    { href: "/heartbeat", label: "Safety Status & How It Works", icon: HeartPulse, desc: "Silent Protection Cycle" },
+    { href: "/audit", label: "Security & Activity Log", icon: ShieldCheck, desc: "Recent Safety Records" },
   ];
 
   return (
     <>
-      {/* Top Header Bar - Peaceful Sage Theme */}
-      <header className="sticky top-0 z-40 bg-[#0F1317]/95 backdrop-blur-md border-b border-emerald-900/20 px-4 py-3.5">
+      {/* Top Header Bar - Clean Light Theme */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 shadow-xs">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           {/* Logo & Brand */}
           <Link href="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#52B788] to-[#74C69D] flex items-center justify-center shadow-[0_0_20px_rgba(82,183,136,0.3)] group-hover:scale-105 transition-all">
-              <Lock className="w-5 h-5 text-[#0F1317]" />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-all">
+              <Lock className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="text-lg font-black tracking-tight text-[#F4F1DE] block leading-none">Virasat</span>
-              <span className="text-[10px] text-[#52B788] font-mono tracking-widest uppercase">Peaceful Estate</span>
+              <span className="text-lg font-black tracking-tight text-slate-900 block leading-none">Virasat</span>
+              <span className="text-[10px] text-emerald-700 font-bold tracking-widest uppercase">Digital Estate</span>
             </div>
           </Link>
 
@@ -111,48 +111,48 @@ export function Navbar() {
           <div className="relative">
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="flex items-center space-x-2 p-1.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-emerald-500/20 transition-all cursor-pointer"
+              className="flex items-center space-x-2 p-1 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
             >
               {currentUser.photoUrl ? (
                 <img
                   src={currentUser.photoUrl}
                   alt={currentUser.name}
-                  className="w-8.5 h-8.5 rounded-xl object-cover border border-[#52B788]/40"
+                  className="w-8 h-8 rounded-xl object-cover border border-emerald-500/30 shadow-xs"
                 />
               ) : (
-                <div className="w-8.5 h-8.5 rounded-xl bg-gradient-to-tr from-[#52B788] to-[#74C69D] flex items-center justify-center text-[#0F1317] font-black text-xs shadow-inner">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-black text-xs shadow-xs">
                   {currentUser.initials}
                 </div>
               )}
-              <ChevronDown className={`w-3.5 h-3.5 text-[#52B788] transition-transform duration-200 ${isProfileMenuOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-600 pr-1 transition-transform duration-200 ${isProfileMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {/* Profile Dropdown Menu */}
             {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 rounded-3xl bg-[#151A20] border border-emerald-500/30 p-3 shadow-2xl space-y-2 z-50 animate-in fade-in duration-150">
+              <div className="absolute right-0 mt-2 w-72 rounded-3xl bg-white border border-slate-200 p-3.5 shadow-xl space-y-2 z-50 animate-in fade-in duration-150 ring-1 ring-slate-900/5">
                 {/* User Info Header */}
-                <div className="p-3 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center space-x-3">
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center space-x-3">
                   {currentUser.photoUrl ? (
                     <img
                       src={currentUser.photoUrl}
                       alt={currentUser.name}
-                      className="w-9 h-9 rounded-xl object-cover border border-[#52B788]/40 shrink-0"
+                      className="w-10 h-10 rounded-xl object-cover border border-emerald-500/30 shrink-0"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-xl bg-[#52B788]/20 border border-[#52B788]/40 flex items-center justify-center text-[#52B788] font-bold text-xs shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-black text-xs shrink-0">
                       {currentUser.initials}
                     </div>
                   )}
                   <div className="overflow-hidden">
-                    <p className="text-xs font-bold text-[#F4F1DE] truncate">{currentUser.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>
-                    <span className="inline-block mt-0.5 text-[9px] font-mono px-1.5 py-0.2 bg-[#52B788]/20 text-[#74C69D] rounded border border-[#52B788]/30">
+                    <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
+                    <span className="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
                       {currentUser.provider} Active
                     </span>
                   </div>
                 </div>
 
-                <div className="border-t border-white/10 my-1" />
+                <div className="border-t border-slate-100 my-1" />
 
                 {/* Navigation Links */}
                 <div className="space-y-1">
@@ -166,26 +166,28 @@ export function Navbar() {
                         onClick={() => setIsProfileMenuOpen(false)}
                         className={`flex items-center space-x-3 p-2.5 rounded-xl text-xs font-bold transition-all ${
                           isActive
-                            ? "bg-[#52B788]/20 text-[#74C69D] border border-[#52B788]/40"
-                            : "text-gray-300 hover:bg-white/5 hover:text-white"
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200/80"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                         }`}
                       >
-                        <Icon className="w-4 h-4 text-[#52B788] shrink-0" />
+                        <div className={`p-2 rounded-lg ${isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          <Icon className="w-4 h-4 shrink-0" />
+                        </div>
                         <div>
-                          <span className="block">{link.label}</span>
-                          <span className="text-[9px] text-gray-500 font-normal block">{link.desc}</span>
+                          <span className="block text-slate-900">{link.label}</span>
+                          <span className="text-[10px] text-slate-500 font-normal block">{link.desc}</span>
                         </div>
                       </Link>
                     );
                   })}
                 </div>
 
-                <div className="border-t border-white/10 my-1" />
+                <div className="border-t border-slate-100 my-1" />
 
                 {/* Switch Account / Sign Out */}
                 <button
                   onClick={handleSignOut}
-                  className="w-full flex items-center space-x-2 p-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                  className="w-full flex items-center space-x-2 p-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Switch Account / Sign Out</span>
