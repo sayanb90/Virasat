@@ -3,8 +3,10 @@ name: Virasat CI Gatekeeper & Cucumber BDD Test Suite
 on:
   push:
     branches: [ main, testing ]
+  # Every pull request, whatever it targets. Restricting this to main and
+  # testing meant a stacked PR (one branch based on another) was merged
+  # with no checks having run on it at all.
   pull_request:
-    branches: [ main, testing ]
 
 jobs:
   test-and-build:
