@@ -157,7 +157,7 @@ export default function SubcategoryNotesPage({
       <Link
         href={`/notes/${sub.id}/new`}
         aria-label={`Add a note under ${sub.label}`}
-        className="fixed bottom-7 left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[20px] bg-[var(--action)] text-white shadow-lg transition-colors hover:bg-[var(--action-hover)]"
+        className="fixed bottom-[max(28px,calc(env(safe-area-inset-bottom)+12px))] left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[20px] bg-[var(--action)] text-white shadow-lg transition-colors hover:bg-[var(--action-hover)]"
       >
         <Plus className="h-8 w-8" aria-hidden="true" />
       </Link>

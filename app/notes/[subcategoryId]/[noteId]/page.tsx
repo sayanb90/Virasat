@@ -2,7 +2,7 @@
 
 import React, { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Paperclip, Trash2 } from "lucide-react";
+import { Calendar, Paperclip, Trash2, UserRound } from "lucide-react";
 import { useLocale } from "@/lib/locale/LocaleProvider";
 import { locateSubcategory } from "@/lib/taxonomy";
 import { useVaultSession } from "@/lib/vault/VaultSession";
@@ -122,6 +122,7 @@ export default function NotePage({
         initialTitle={note.title}
         initialBody={body}
         initialFileName={fileName}
+        initialBeneficiaryId={note.assignedBeneficiaryIds[0]}
         onCancel={() => setEditing(false)}
         onSaved={() => {
           setEditing(false);
@@ -132,6 +133,7 @@ export default function NotePage({
     );
   }
 
+  const recipient = beneficiaries.find((b) => b.id === note.assignedBeneficiaryIds[0]);
   const updated = new Date(note.updatedAt);
 
   return (
@@ -175,6 +177,13 @@ export default function NotePage({
             <Paperclip className="h-5 w-5 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate text-[17px] text-[var(--text)]">{fileName}</span>
           </div>
+        )}
+
+        {recipient && beneficiaries.length > 1 && (
+          <p className="mt-6 flex items-center gap-2 text-[17px] text-[var(--text-muted)]">
+            <UserRound className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+            Goes to {recipient.name}
+          </p>
         )}
 
         <div className="mt-10">

@@ -15,6 +15,10 @@ export const viewport: Viewport = {
   themeColor: "#0f3442",
   width: "device-width",
   initialScale: 1,
+  // Draw behind the status bar and home indicator so the ink header runs
+  // edge to edge. This is also what makes env(safe-area-inset-*) non-zero,
+  // so every surface that touches a screen edge must pad for it.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

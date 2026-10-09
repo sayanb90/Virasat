@@ -24,7 +24,7 @@ export function AppHeader({
 
   return (
     <header className="relative">
-      <div className="bg-[var(--ink-800)] px-2 pt-3">
+      <div className="bg-[var(--ink-800)] px-2 pt-[max(12px,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-[640px] items-center justify-between">
           {nested ? (
             <button

@@ -20,6 +20,7 @@ export interface NoteFormProps {
   initialTitle?: string;
   initialBody?: string;
   initialFileName?: string;
+  initialBeneficiaryId?: string;
   onCancel: () => void;
   onSaved: (noteId: string) => void;
 }
@@ -35,6 +36,7 @@ export function NoteForm({
   initialTitle = "",
   initialBody = "",
   initialFileName,
+  initialBeneficiaryId,
   onCancel,
   onSaved,
 }: NoteFormProps) {
@@ -45,6 +47,14 @@ export function NoteForm({
   const [keptFileName, setKeptFileName] = useState(initialFileName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Notes go to the primary Beneficiary without asking. The chooser only
+  // appears once a second Beneficiary exists, so the common case stays a
+  // two-field form and the capability is there when it is actually needed.
+  const [beneficiaryId, setBeneficiaryId] = useState(
+    initialBeneficiaryId ?? beneficiaries[0]?.id ?? ""
+  );
+  const canChooseRecipient = beneficiaries.length > 1;
 
   const photoInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -75,7 +85,7 @@ export function NoteForm({
         title: title.trim(),
         subcategoryId,
         body,
-        beneficiaryId: beneficiaries[0]?.id,
+        beneficiaryId: beneficiaryId || beneficiaries[0]?.id,
         file: attachment,
       };
       const saved = await saveNote(draft, masterKey, beneficiaries);
@@ -102,6 +112,29 @@ export function NoteForm({
 
         <div className="space-y-4">
           <ReadOnlyField label="Category" value={subcategoryLabel} />
+
+          {canChooseRecipient && (
+            <div className="rounded-[14px] border border-[var(--border-strong)] bg-white px-4 py-3 focus-within:border-[var(--action)]">
+              <label
+                htmlFor="note-recipient"
+                className="block text-[15px] font-semibold text-[var(--action)]"
+              >
+                Who should receive this?
+              </label>
+              <select
+                id="note-recipient"
+                value={beneficiaryId}
+                onChange={(e) => setBeneficiaryId(e.target.value)}
+                className="min-h-[40px] w-full bg-transparent pt-1 pr-6 text-[19px] text-[var(--text)] outline-none"
+              >
+                {beneficiaries.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.relationship ? `${b.name} — ${b.relationship}` : b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="rounded-[14px] border border-[var(--border-strong)] bg-white px-4 py-3 focus-within:border-[var(--action)]">
             <label htmlFor="note-title" className="block text-[15px] font-semibold text-[var(--action)]">
