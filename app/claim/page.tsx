@@ -8,6 +8,7 @@ import { loadZeroTracePayload, DecryptedMemoryItem } from "@/lib/crypto/zeroTrac
 import { ZeroTraceModal } from "@/components/ZeroTraceModal";
 import { VaultItemRecord } from "@/lib/state/mockDatabase";
 import { PhaseInfo } from "@/lib/state/heartbeatMachine";
+import { describeSubcategory, DEFAULT_COUNTRY } from "@/lib/taxonomy";
 
 export default function ClaimPage() {
   const [privateKeyPem, setPrivateKeyPem] = useState("");
@@ -73,7 +74,7 @@ export default function ClaimPage() {
       const zeroTraceItem = await loadZeroTracePayload(
         item.id,
         item.title,
-        item.category,
+        describeSubcategory(DEFAULT_COUNTRY, item.subcategoryId).subcategoryLabel,
         item.mimeType,
         item.ciphertextHex,
         item.ivHex,
@@ -192,7 +193,9 @@ export default function ClaimPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-white text-base">{item.title}</h3>
-                    <p className="text-xs text-gray-400 font-mono">Category: {item.category}</p>
+                    <p className="text-xs text-gray-400 font-mono">
+                      Category: {describeSubcategory(DEFAULT_COUNTRY, item.subcategoryId).subcategoryLabel}
+                    </p>
                   </div>
                 </div>
 

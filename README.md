@@ -69,21 +69,46 @@
 
 ## ✨ Features
 
-- **📱 Mobile App Frame Simulator:** Switch between **📱 iOS (iPhone 16 Pro)**, **🤖 Android**, and **💻 Expanded View** modes.
-- **👤 Top Profile Dropdown Navigation:** Clean header navigation with user profile badge and quick access to all screens.
-- **🔐 Google / Apple / Email Authentication:** OAuth sign-in integration preserving zero-knowledge client encryption.
-- **📦 My Family Chest (Vault):** Add, edit, view, copy, download, replace, or delete encrypted confidential secrets and files.
-- **👥 Loved Ones & Heirs:** Manage designated beneficiaries and RSA public key bindings.
-- **💚 Safety Check-In & Time Machine:** Prominent 1-tap **"I AM SAFE & WELL"** check-in button and fast-forward escalation simulator.
-- **🛡️ Zero-Knowledge Security Audit Log:** Immutable client-side log tracking cryptographic operations and state syncs.
+- **🗂️ Two-level category tree:** Eight category groups and ~48 subcategories, each with a plain-English line explaining exactly what belongs there — so a user is never left guessing.
+- **🌍 Locale packs (India-first, international-ready):** One universal structure, swappable vocabulary. India sees EPF/PPF/NPS, demat and folio numbers, Aadhaar and PAN, khata and encumbrance certificates, plus two subcategories with no international counterpart: **Nominee Details** and **Bank Locker**. Country is chosen in Settings and never rewrites stored notes.
+- **📝 Encrypted notes:** Create, read, edit, attach to and delete notes. Everything but the title is AES-256-GCM ciphertext before it leaves the device.
+- **🔑 In-memory session:** The master key is derived on unlock and held only in the tab's memory — never in storage, never on the server. Closing the tab ends the session.
+- **👥 Loved Ones & Heirs:** Beneficiaries and their RSA public-key bindings.
+- **💚 Safety check-in:** One-tap "I am safe and well", with a fast-forward simulator for the escalation ladder.
+- **🛡️ Security log:** An append-only record of cryptographic operations, folded under Settings.
+
+---
+
+## 🗂️ Category Taxonomy & Locale Packs
+
+The tree is deliberately split in two:
+
+| Layer | What it holds | File |
+| :--- | :--- | :--- |
+| **Structure** | Group and subcategory **ids** (`insurance.life`, `banks.retirement`). Identical in every market. | `lib/taxonomy/tree.ts` |
+| **Vocabulary** | Labels, guidance text, extra subcategories and ordering, per country. | `lib/taxonomy/locales/*.ts` |
+
+Notes persist the **id**, never the label. A user can switch country and every
+note keeps a meaningful category — including notes filed under a subcategory
+that only exists in another market, which `describeSubcategory()` resolves by
+searching every pack before falling back.
+
+**Adding a market is a content task, not a refactor:** add a `LocalePack` under
+`lib/taxonomy/locales/`, register it in `LOCALE_PACKS`, and the whole app picks
+it up. Each pack may override labels and guidance, hide subcategories, append
+market-specific ones, and promote the ones its users care about most.
+
+`SubcategoryDef.essential` is already carried through the resolver but unused —
+it exists so a shorter "Essentials" view can later be a filter rather than a
+re-modelling exercise.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Framework:** Next.js 15 (App Router, Turbopack)
+- **Framework:** Next.js 16 (App Router, Turbopack)
 - **Library:** React 19, TypeScript
-- **Styling:** Tailwind CSS, Framer Motion
+- **Styling:** Tailwind CSS v4 (design tokens in `app/globals.css`)
 - **Icons:** Lucide React
 - **Cryptography:** WebCrypto API (AES-256-GCM, PBKDF2, RSA-OAEP)
 
@@ -100,7 +125,7 @@
 1. **Clone the Repository:**
    ```bash
    git clone https://github.com/sayanb90/Virasat.git
-   cd Virasat/code
+   cd Virasat
    ```
 
 2. **Install Dependencies:**

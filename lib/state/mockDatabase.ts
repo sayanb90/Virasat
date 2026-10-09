@@ -8,7 +8,12 @@
 export interface VaultItemRecord {
   id: string;
   title: string;
-  category: "Credentials" | "Private Note" | "Document" | "Crypto Key" | "Legal Estate";
+  /**
+   * Stable taxonomy subcategory id (e.g. "insurance.life"). Locale packs
+   * change the label shown for this id, never the id itself, so a note
+   * survives the user switching country.
+   */
+  subcategoryId: string;
   mimeType: string;
   ciphertextHex: string;
   ivHex: string;
@@ -99,9 +104,36 @@ class MockZeroKnowledgeDatabase {
     this.logAudit(
       "Ciphertext Blob Uploaded",
       "ZeroKnowledgeSync",
-      `Stored item '${item.title}' (Category: ${item.category}) as AES-256-GCM ciphertext.`
+      `Stored note '${item.title}' (${item.subcategoryId}) as AES-256-GCM ciphertext.`
     );
     return item;
+  }
+
+  public updateVaultItem(
+    id: string,
+    patch: Partial<Omit<VaultItemRecord, "id" | "createdAt">>
+  ): VaultItemRecord | null {
+    const existing = this.vaultItems.get(id);
+    if (!existing) return null;
+
+    const updated: VaultItemRecord = {
+      ...existing,
+      ...patch,
+      id: existing.id,
+      createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString(),
+    };
+    this.vaultItems.set(id, updated);
+    this.logAudit(
+      "Ciphertext Blob Replaced",
+      "ZeroKnowledgeSync",
+      `Re-encrypted note '${updated.title}' and replaced the stored ciphertext.`
+    );
+    return updated;
+  }
+
+  public getVaultItem(id: string): VaultItemRecord | undefined {
+    return this.vaultItems.get(id);
   }
 
   public deleteVaultItem(id: string): boolean {

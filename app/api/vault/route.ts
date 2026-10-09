@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, VaultItemRecord } from "@/lib/state/mockDatabase";
 
-// GET /api/vault - Retrieve all zero-knowledge encrypted vault item records
+// GET /api/vault - Retrieve all zero-knowledge encrypted note records
 export async function GET() {
   const items = db.getVaultItems();
   return NextResponse.json({
@@ -11,11 +11,26 @@ export async function GET() {
   });
 }
 
-// POST /api/vault - Save or update encrypted ciphertext blob
+/**
+ * POST /api/vault - Store or replace an encrypted ciphertext blob.
+ *
+ * An `id` that already exists is treated as an edit: the record is patched in
+ * place so createdAt and the original id survive. An unknown or absent id
+ * creates a new note.
+ */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { id, title, category, mimeType, ciphertextHex, ivHex, encryptedChestKeyHex, assignedBeneficiaryIds } = body;
+    const {
+      id,
+      title,
+      subcategoryId,
+      mimeType,
+      ciphertextHex,
+      ivHex,
+      encryptedChestKeyHex,
+      assignedBeneficiaryIds,
+    } = body;
 
     if (!title || !ciphertextHex || !ivHex) {
       return NextResponse.json(
@@ -24,16 +39,42 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!subcategoryId) {
+      return NextResponse.json(
+        { success: false, error: "Missing subcategoryId." },
+        { status: 400 }
+      );
+    }
+
+    if (id && db.getVaultItem(id)) {
+      const updated = db.updateVaultItem(id, {
+        title,
+        subcategoryId,
+        mimeType: mimeType || "text/plain",
+        ciphertextHex,
+        ivHex,
+        ...(encryptedChestKeyHex ? { encryptedChestKeyHex } : {}),
+        ...(assignedBeneficiaryIds ? { assignedBeneficiaryIds } : {}),
+      });
+
+      return NextResponse.json({
+        success: true,
+        item: updated,
+        message: "Encrypted ciphertext blob replaced successfully.",
+      });
+    }
+
+    const now = new Date().toISOString();
     const itemRecord: VaultItemRecord = {
-      id: id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: id || `note-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title,
-      category: category || "Credentials",
+      subcategoryId,
       mimeType: mimeType || "text/plain",
       ciphertextHex,
       ivHex,
       encryptedChestKeyHex: encryptedChestKeyHex || "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       assignedBeneficiaryIds: assignedBeneficiaryIds || [],
     };
 
@@ -50,7 +91,7 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE /api/vault?id=xyz - Delete encrypted vault item
+// DELETE /api/vault?id=xyz - Delete an encrypted note record
 export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

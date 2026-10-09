@@ -1,30 +1,46 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import assert from "assert";
+import { NAV_ITEMS } from "../../lib/nav";
 
-let isMenuOpen = false;
-let userIdentity = "";
+let drawerOpen = false;
+let visibleLabels: string[] = [];
 let isAuthModalOpen = false;
 let selectedAuthProvider = "";
 
-Given("a user on the Virasat home dashboard", function () {
-  isMenuOpen = false;
+Given("a user on the Virasat notes screen", function () {
+  drawerOpen = false;
+  visibleLabels = [];
 });
 
-When("the user taps the top-right profile avatar {string}", function (avatarText: string) {
-  if (avatarText === "SB") {
-    isMenuOpen = true;
-    userIdentity = "Sayan Bhattacharjee";
+When("the user opens the main menu", function () {
+  drawerOpen = true;
+  visibleLabels = NAV_ITEMS.map((item) => item.label);
+});
+
+Then(
+  "the drawer should list {string}, {string}, {string}, and {string}",
+  function (a: string, b: string, c: string, d: string) {
+    assert.strictEqual(drawerOpen, true, "the drawer should be open");
+    for (const label of [a, b, c, d]) {
+      assert.ok(
+        visibleLabels.includes(label),
+        `expected the drawer to list "${label}", got: ${visibleLabels.join(", ")}`
+      );
+    }
   }
-});
+);
 
-Then("a dropdown menu should expand displaying user identity {string}", function (expectedIdentity: string) {
-  assert.strictEqual(isMenuOpen, true);
-  assert.strictEqual(userIdentity, expectedIdentity);
-});
-
-Then("navigation options for {string}, {string}, {string}, and {string} should be visible", function (nav1: string, nav2: string, nav3: string, nav4: string) {
-  assert.ok(nav1 && nav2 && nav3 && nav4);
-});
+Then(
+  "the drawer should also offer {string}, {string}, and {string}",
+  function (a: string, b: string, c: string) {
+    for (const label of [a, b, c]) {
+      assert.ok(
+        visibleLabels.includes(label),
+        `expected the drawer to offer "${label}", got: ${visibleLabels.join(", ")}`
+      );
+    }
+  }
+);
 
 Given("an unauthenticated or switching user", function () {
   isAuthModalOpen = false;
@@ -34,7 +50,11 @@ When("the auth modal is presented", function () {
   isAuthModalOpen = true;
 });
 
-Then("options for {string}, {string}, and {string} should be active", function (opt1: string, opt2: string, opt3: string) {
+Then("options for {string}, {string}, and {string} should be active", function (
+  opt1: string,
+  opt2: string,
+  opt3: string
+) {
   assert.strictEqual(isAuthModalOpen, true);
   assert.ok(opt1 && opt2 && opt3);
 });

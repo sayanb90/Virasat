@@ -1,15 +1,24 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
-import { MobileDeviceFrame } from "@/components/MobileDeviceFrame";
+import { AppShell } from "@/components/AppShell";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: "Virasat | Digital Estate Vault App",
-  description: "Senior-friendly cross-platform digital estate vault & safety switch mobile application for iOS & Android.",
+  title: "Virasat | Your legacy, kept safe",
+  description:
+    "A private, encrypted place to record what your family will need to know — and a gentle check-in that passes it on only when the time comes.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f3442",
+  width: "device-width",
+  initialScale: 1,
+  // Draw behind the status bar and home indicator so the ink header runs
+  // edge to edge. This is also what makes env(safe-area-inset-*) non-zero,
+  // so every surface that touches a screen edge must pad for it.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -18,14 +27,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable} h-full dark`}>
-      <body className="min-h-full bg-[#06070B] text-gray-100 font-sans flex flex-col antialiased selection:bg-emerald-500 selection:text-black">
-        <MobileDeviceFrame>
-          <Navbar />
-          <main className="flex-1 px-4 py-4 pb-20">
-            {children}
-          </main>
-        </MobileDeviceFrame>
+    <html lang="en" className={inter.variable}>
+      <body className="font-sans antialiased">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
