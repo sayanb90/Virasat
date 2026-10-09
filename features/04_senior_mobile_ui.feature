@@ -1,13 +1,13 @@
-Feature: Senior Accessibility & Navigation UI
+Feature: Senior Accessibility & Drawer Navigation
   As a senior citizen or family member
-  I want simple navigation via top-right profile avatar dropdown and zero bottom-bar clutter
-  So that I can easily navigate between My Chest, Loved Ones, Safety Status, and Audit Logs
+  I want one clear menu that names every part of the app in plain English
+  So that I can reach my notes, my Beneficiary and my settings without hunting
 
-  Scenario: Top-right profile avatar dropdown menu navigation
-    Given a user on the Virasat home dashboard
-    When the user taps the top-right profile avatar "SB"
-    Then a dropdown menu should expand displaying user identity "Sayan Bhattacharjee"
-    And navigation options for "My Family Chest", "Loved Ones & Heirs", "Safety Status", and "Audit Security Log" should be visible
+  Scenario: Slide-out drawer lists every destination
+    Given a user on the Virasat notes screen
+    When the user opens the main menu
+    Then the drawer should list "My notes", "Safety check-in", "Beneficiary", and "Settings"
+    And the drawer should also offer "Trusted Friends", "Backup", and "Inherited notes"
 
   Scenario: Authentication modal supports Google, Apple, and Email sign-in
     Given an unauthenticated or switching user
