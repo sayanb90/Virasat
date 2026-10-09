@@ -42,6 +42,31 @@ export interface BeneficiaryEnvelopeRecord {
   createdAt: string;
 }
 
+export interface TrustedFriendRecord {
+  id: string;
+  name: string;
+  email: string;
+  /** Green in the UI only once the person has accepted. */
+  status: "Invited" | "Accepted";
+  /** Opaque token carried by the invite link. */
+  inviteToken: string;
+  createdAt: string;
+  acceptedAt?: string;
+}
+
+/**
+ * Account settings that the escalation engine itself depends on, so they live
+ * server-side rather than in the browser. Display-only preferences (country,
+ * onboarding) stay on the device.
+ */
+export interface AccountSettings {
+  /** Full silence-to-release cycle, in days. */
+  checkInCycleDays: number;
+  /** ISO date; while in the future the escalation clock does not advance. */
+  vacationUntil: string | null;
+  trustedFriendsEnabled: boolean;
+}
+
 export interface AuditLogRecord {
   id: string;
   action: string;
@@ -56,6 +81,12 @@ class MockZeroKnowledgeDatabase {
   private beneficiaries: Map<string, BeneficiaryRecord> = new Map();
   private envelopes: Map<string, BeneficiaryEnvelopeRecord> = new Map();
   private auditLogs: AuditLogRecord[] = [];
+  private trustedFriends: Map<string, TrustedFriendRecord> = new Map();
+  private settings: AccountSettings = {
+    checkInCycleDays: 365,
+    vacationUntil: null,
+    trustedFriendsEnabled: true,
+  };
   public simulatedElapsedDays: number = 0;
   public lastCheckInDate: string = new Date().toISOString();
 
@@ -183,6 +214,69 @@ class MockZeroKnowledgeDatabase {
       "Crypto",
       `Bound encrypted chest key envelope E_ben(K_chest) to beneficiary ${envelope.beneficiaryId}`
     );
+  }
+
+  // Account settings
+  public getSettings(): AccountSettings {
+    return { ...this.settings };
+  }
+
+  public updateSettings(patch: Partial<AccountSettings>): AccountSettings {
+    this.settings = { ...this.settings, ...patch };
+    this.logAudit(
+      "Settings Updated",
+      "Heartbeat",
+      `Changed ${Object.keys(patch).join(", ")}.`
+    );
+    return this.getSettings();
+  }
+
+  /** True while a vacation hold is active, which freezes the escalation clock. */
+  public isOnVacation(now: Date = new Date()): boolean {
+    if (!this.settings.vacationUntil) return false;
+    return new Date(this.settings.vacationUntil).getTime() > now.getTime();
+  }
+
+  // Trusted Friends
+  public getTrustedFriends(): TrustedFriendRecord[] {
+    return Array.from(this.trustedFriends.values());
+  }
+
+  public addTrustedFriend(friend: TrustedFriendRecord): TrustedFriendRecord {
+    this.trustedFriends.set(friend.id, friend);
+    this.logAudit(
+      "Trusted Friend Invited",
+      "Heartbeat",
+      `Invited ${friend.email} to vouch for this account.`
+    );
+    return friend;
+  }
+
+  public acceptTrustedFriend(inviteToken: string): TrustedFriendRecord | null {
+    const friend = this.getTrustedFriends().find((f) => f.inviteToken === inviteToken);
+    if (!friend) return null;
+    if (friend.status === "Accepted") return friend;
+
+    const accepted: TrustedFriendRecord = {
+      ...friend,
+      status: "Accepted",
+      acceptedAt: new Date().toISOString(),
+    };
+    this.trustedFriends.set(accepted.id, accepted);
+    this.logAudit(
+      "Trusted Friend Accepted",
+      "Heartbeat",
+      `${accepted.email} accepted and can now confirm your wellbeing.`
+    );
+    return accepted;
+  }
+
+  public deleteTrustedFriend(id: string): boolean {
+    const friend = this.trustedFriends.get(id);
+    if (!friend) return false;
+    this.trustedFriends.delete(id);
+    this.logAudit("Trusted Friend Removed", "Heartbeat", `Removed ${friend.email}.`);
+    return true;
   }
 
   // Audit Logs

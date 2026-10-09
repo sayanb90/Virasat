@@ -39,10 +39,45 @@ export interface EscalationNotification {
 const TOTAL_CYCLE_DAYS = 365;
 
 /**
+ * Phase boundaries as a fraction of the full cycle, taken from the original
+ * 365-day design (silence to day 270, gentle reminders to 330, urgent to 345).
+ * Keeping them proportional means a user can shorten or lengthen their
+ * check-in interval and still get the same shape of escalation.
+ */
+const PHASE_FRACTIONS = {
+  silentEnd: 270 / 365,
+  gentleEnd: 330 / 365,
+  urgentEnd: 345 / 365,
+} as const;
+
+export const CYCLE_OPTIONS = [
+  { days: 183, label: "Every 6 months" },
+  { days: 365, label: "Once a year" },
+  { days: 548, label: "Every 18 months" },
+  { days: 730, label: "Every 2 years" },
+] as const;
+
+export const DEFAULT_CYCLE_DAYS = TOTAL_CYCLE_DAYS;
+
+export function cycleBoundaries(cycleDays: number = TOTAL_CYCLE_DAYS) {
+  return {
+    silentEnd: Math.round(cycleDays * PHASE_FRACTIONS.silentEnd),
+    gentleEnd: Math.round(cycleDays * PHASE_FRACTIONS.gentleEnd),
+    urgentEnd: Math.round(cycleDays * PHASE_FRACTIONS.urgentEnd),
+    total: cycleDays,
+  };
+}
+
+/**
  * Calculates current escalation phase and statistics from elapsed days
  */
-export function getPhaseFromElapsedDays(elapsedDays: number): PhaseInfo {
-  if (elapsedDays < 270) {
+export function getPhaseFromElapsedDays(
+  elapsedDays: number,
+  cycleDays: number = TOTAL_CYCLE_DAYS
+): PhaseInfo {
+  const bounds = cycleBoundaries(cycleDays);
+
+  if (elapsedDays < bounds.silentEnd) {
     // 0 -> 9 months (approx 270 days)
     return {
       phase: 0,
@@ -50,15 +85,15 @@ export function getPhaseFromElapsedDays(elapsedDays: number): PhaseInfo {
       description: "App operates in complete silence. Zero notifications or intrusive prompts.",
       badgeColor: "text-emerald-400",
       badgeBg: "bg-emerald-500/10 border-emerald-500/20",
-      daysRemaining: 270 - elapsedDays,
-      totalDaysInCycle: TOTAL_CYCLE_DAYS,
+      daysRemaining: bounds.silentEnd - elapsedDays,
+      totalDaysInCycle: bounds.total,
       activeRemindersCount: 0,
       expectedEmailsInPhase: 0,
       isTriggered: false,
     };
-  } else if (elapsedDays < 330) {
-    // 9 -> 11 months (approx 270 to 330 days)
-    const phaseDays = elapsedDays - 270;
+  } else if (elapsedDays < bounds.gentleEnd) {
+    // 9 -> 11 months (approx 270 to 330 days on a one-year cycle)
+    const phaseDays = elapsedDays - bounds.silentEnd;
     const remindersSent = Math.min(5, Math.floor(phaseDays / 12) + 1);
     return {
       phase: 1,
@@ -66,14 +101,14 @@ export function getPhaseFromElapsedDays(elapsedDays: number): PhaseInfo {
       description: "Gentle heartbeat check-in reminders sent to vault owner spaced 12-14 days apart.",
       badgeColor: "text-sky-400",
       badgeBg: "bg-sky-500/10 border-sky-500/20",
-      daysRemaining: 330 - elapsedDays,
-      totalDaysInCycle: TOTAL_CYCLE_DAYS,
+      daysRemaining: bounds.gentleEnd - elapsedDays,
+      totalDaysInCycle: bounds.total,
       activeRemindersCount: remindersSent,
       expectedEmailsInPhase: 5,
       isTriggered: false,
     };
-  } else if (elapsedDays < 345) {
-    // 11 -> 11.5 months (approx 330 to 345 days)
+  } else if (elapsedDays < bounds.urgentEnd) {
+    // 11 -> 11.5 months (approx 330 to 345 days on a one-year cycle)
     const phaseDays = elapsedDays - 330;
     const remindersSent = Math.min(5, Math.floor(phaseDays / 3) + 1);
     return {
@@ -82,15 +117,15 @@ export function getPhaseFromElapsedDays(elapsedDays: number): PhaseInfo {
       description: "Increased frequency reminders (spaced 3-4 days apart) alerting of pending vault release.",
       badgeColor: "text-amber-400",
       badgeBg: "bg-amber-500/10 border-amber-500/20",
-      daysRemaining: 345 - elapsedDays,
-      totalDaysInCycle: TOTAL_CYCLE_DAYS,
+      daysRemaining: bounds.urgentEnd - elapsedDays,
+      totalDaysInCycle: bounds.total,
       activeRemindersCount: remindersSent,
       expectedEmailsInPhase: 5,
       isTriggered: false,
     };
-  } else if (elapsedDays < 365) {
-    // 11.5 -> 12 months (approx 345 to 365 days)
-    const phaseDays = elapsedDays - 345;
+  } else if (elapsedDays < bounds.total) {
+    // 11.5 -> 12 months (approx 345 to 365 days on a one-year cycle)
+    const phaseDays = elapsedDays - bounds.urgentEnd;
     const remindersSent = Math.min(10, phaseDays + 1);
     return {
       phase: 3,
@@ -98,14 +133,14 @@ export function getPhaseFromElapsedDays(elapsedDays: number): PhaseInfo {
       description: "Final 2-week daily countdown alerts sent via Email, SMS, and WhatsApp.",
       badgeColor: "text-rose-400",
       badgeBg: "bg-rose-500/10 border-rose-500/20",
-      daysRemaining: 365 - elapsedDays,
-      totalDaysInCycle: TOTAL_CYCLE_DAYS,
+      daysRemaining: bounds.total - elapsedDays,
+      totalDaysInCycle: bounds.total,
       activeRemindersCount: remindersSent,
       expectedEmailsInPhase: 10,
       isTriggered: false,
     };
   } else {
-    // 365+ days: Triggered
+    // Past the full cycle: Triggered
     return {
       phase: 4,
       name: "Phase 4: Vault Releasing / Escalation Triggered",
@@ -113,7 +148,7 @@ export function getPhaseFromElapsedDays(elapsedDays: number): PhaseInfo {
       badgeColor: "text-purple-400 animate-pulse",
       badgeBg: "bg-purple-500/20 border-purple-500/40",
       daysRemaining: 0,
-      totalDaysInCycle: TOTAL_CYCLE_DAYS,
+      totalDaysInCycle: bounds.total,
       activeRemindersCount: 20,
       expectedEmailsInPhase: 20,
       isTriggered: true,
