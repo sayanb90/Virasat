@@ -50,6 +50,12 @@ test.describe("Navigation", () => {
     for (const route of routes) {
       await gotoUnlocked(page, route);
 
+      // Park the cursor off every control first. Unlocking leaves the pointer
+      // where it clicked, and a hovered primary button renders at
+      // --action-hover (luminance 68.8) which is dark enough to look like a
+      // legacy surface. This made the check flaky rather than wrong.
+      await page.mouse.move(0, 0);
+
       const darkArea = await page.evaluate(() => {
         const isDark = (colour: string) => {
           const m = colour?.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
@@ -57,8 +63,11 @@ test.describe("Navigation", () => {
           const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
           if (alpha < 0.5) return false;
           const [r, g, b] = [+m[1], +m[2], +m[3]];
-          // Below the brand's own action colour, so buttons do not trip it.
-          return 0.299 * r + 0.587 * g + 0.114 * b < 70;
+          // 45 sits in the gap between the two populations: the legacy dark
+          // surfaces this guards against are all under 25, and the darkest
+          // thing the brand legitimately paints is --action-hover at 68.8.
+          // Do not raise this towards 70 — that is what made it flaky.
+          return 0.299 * r + 0.587 * g + 0.114 * b < 45;
         };
         let area = 0;
         for (const el of Array.from(document.querySelectorAll("main *"))) {
