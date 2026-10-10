@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db, TrustedFriendRecord } from "@/lib/state/mockDatabase";
+import { sendEmail, templateContext } from "@/lib/email";
+import { trustedFriendInvite } from "@/lib/email/templates";
 
 export async function GET() {
   return NextResponse.json({
@@ -40,7 +42,25 @@ export async function POST(req: Request) {
     };
 
     db.addTrustedFriend(friend);
-    return NextResponse.json({ success: true, friend });
+
+    // Until now the token was minted, stored, and never sent — the invite
+    // link had to be copy-pasted by hand. A failed send does not fail the
+    // invite: the record exists, and the link is still shown in the UI.
+    const delivery = await sendEmail(
+      trustedFriendInvite(templateContext(), {
+        friendName: friend.name,
+        friendEmail: friend.email,
+        ownerName: process.env.OWNER_NAME ?? "A Virasat user",
+        inviteToken: friend.inviteToken,
+      })
+    );
+
+    return NextResponse.json({
+      success: true,
+      friend,
+      emailed: delivery.ok,
+      ...(delivery.ok ? {} : { emailError: delivery.error }),
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

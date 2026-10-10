@@ -206,6 +206,9 @@ feature can be switched off per account.
   `/inherited` for what has been left to them. Neither is trapped by onboarding.
 - **🛡️ Security log** — an append-only record of cryptographic operations, folded
   under Settings rather than sitting in the main navigation.
+- **📧 Email** — provider-agnostic delivery (console, Resend or SendGrid) for
+  invitations, the check-in ladder and the release notice, sent at most once
+  each and never carrying key material. See [Email](#-email).
 - **❓ Help** — plain-language answers, reached from Settings ("Get support")
   and from the beneficiary's `/inherited` screen.
 
@@ -227,6 +230,96 @@ feature can be switched off per account.
 | `/audit` | The security log itself |
 | `/claim`, `/inherited` | Beneficiary-side release and inheritance |
 | `/help` | Plain-language help (linked from Settings and `/inherited`) |
+| `GET /api/email` | Email configuration and the send ledger |
+
+---
+
+## 📧 Email
+
+Email is how a Virasat user is reached at all, and how a beneficiary learns
+anything was left to them. The module is provider-agnostic: the app composes
+messages, a driver puts them on the wire.
+
+### The rule
+
+> **No email Virasat sends may contain key material, passphrase material, or
+> any decrypted note content.**
+
+Email is plaintext between providers, permanent in two or more inboxes, and the
+most commonly breached thing a person owns. An email carrying the key to the
+vault *is* the vault. So a Virasat email only ever says *something has
+happened, here is where to go* — the secret itself is reached by the recipient,
+on a device they control, with a key the server never had.
+
+This is enforced, not just intended. `features/08_email_delivery.feature`
+checks every template for exact secret values, for a PEM block, and for
+anything merely *shaped* like a secret — a run of 32+ hex characters, a long
+base64 blob. **Add a template, add it to that scenario's table.**
+
+### Configuration
+
+Copy `.env.example` to `.env.local`. Everything is optional; with nothing set,
+email prints to the server log instead of going out.
+
+| Variable | Meaning |
+| :--- | :--- |
+| `EMAIL_DRIVER` | `console` *(default)*, `resend` or `sendgrid` |
+| `EMAIL_FROM` | `"Virasat <hello@yourdomain.com>"` — the domain must be verified with your provider |
+| `APP_URL` | Absolute base for links in emails. Defaults to localhost, which is wrong anywhere but development |
+| `OWNER_NAME` / `OWNER_EMAIL` | Who the check-in ladder is addressed to. There are no real accounts yet; with `OWNER_EMAIL` unset no check-in email is sent |
+| `RESEND_API_KEY` / `SENDGRID_API_KEY` | Set only the one matching `EMAIL_DRIVER` |
+
+`console` is the default deliberately: a half-configured deployment should
+print to the log, never quietly post a real address to a provider. An
+unrecognised `EMAIL_DRIVER` reports itself as not-ready rather than silently
+falling back, so a typo surfaces instead of hiding.
+
+Both real drivers are a single authenticated `POST`, so **no new
+dependencies**. Adding a provider means one file implementing `EmailDriver`
+and one line in `resolveDriver()`. Amazon SES would need SigV4 signing and is
+the obvious next one for Indian deployments (`ap-south-1`).
+
+### What gets sent
+
+| Message | Trigger | Carries |
+| :--- | :--- | :--- |
+| Trusted Friend invitation | Inviting someone | The accept link, nothing else |
+| Safety check-in (gentle / urgent / critical) | The escalation ladder | A link to the safety screen and how long is left |
+| Release notice | The cycle ending without a check-in | That notes exist, how many, and where to go — explicitly **not** the key |
+
+The release notice says in plain words that the key is not enclosed and that
+we do not hold a copy, because the first thing a grieving relative will do is
+search that email for a password.
+
+### Sending at most once
+
+The ladder is a pure function of elapsed days, recomputed on **every** read of
+`/api/heartbeat`. Without a ledger, a user would receive the entire ladder
+again on every page load. Each message carries an `idempotencyKey`;
+`lib/email/outbox.ts` records what has been handed to a driver and refuses a
+repeat. A *failed* send does not close the key, so a provider outage stays
+retryable instead of permanently swallowing a release notice.
+
+`sendEmail()` never throws. `/api/heartbeat` is how a user says *I am alive* —
+an email provider being down must not break that.
+
+There is no scheduler in this build, so a read of `/api/heartbeat` is also the
+dispatch trigger. `GET /api/email` reports the configuration (presence of a
+key, never its value) and the outbox.
+
+**A paused account is never chased** — vacation mode stops the ladder and the
+release, and a spec asserts nothing is sent while paused.
+
+### Known limits
+
+- The outbox is in-memory, like the rest of this build's state. **This is the
+  first thing that must move when persistence lands:** a ledger that empties
+  on restart means a restart mid-ladder re-sends everything — which here means
+  re-sending a release notice to a grieving family.
+- Nothing verifies an address before sending to it, and bounces are not
+  handled. A typo in a beneficiary's email fails silently from the user's side.
+- SMS and WhatsApp rungs of the ladder are still simulated. The dispatcher
+  skips them rather than pretending.
 
 ---
 
@@ -274,13 +367,14 @@ npm run test:all  # both
 Both run on every pull request (`.github/workflows/ci.yml`, no branch filter, so
 stacked PRs are gated too).
 
-**Cucumber (47 scenarios)** covers things with no UI: AES-GCM round trips and key
+**Cucumber (58 scenarios)** covers things with no UI: AES-GCM round trips and key
 derivation, the note payload codec with attachments (a real 1.4MB buffer),
 taxonomy resolution and locale packs, escalation phase maths *at every cycle
 length*, the backup format, the vacation cap and credit-back arithmetic, and a
-guard that no key, salt or passphrase material is ever written to the console.
+guard that no key, salt or passphrase material is ever written to the console or
+put into an email.
 
-**Playwright (50 scenarios)** drives a real browser at 390×844 against the
+**Playwright (54 scenarios)** drives a real browser at 390×844 against the
 **production build**, not the dev server, so the specs exercise what ships:
 
 | Spec | Covers |
@@ -295,6 +389,7 @@ guard that no key, salt or passphrase material is ever written to the console.
 | `security` | a wrong passphrase cannot read any note body, and locking clears the session |
 | `attachments` | a file survives save and reopen, never reaches the server in the clear, and can be removed without losing the note |
 | `localisation` | switching country re-labels the tree, hides market-specific sections, and **never makes a note unreachable** |
+| `email` | the invitation really is sent, the ladder goes out **once** however often the safety screen is read, a paused account is not chased, and no API key is ever served |
 
 ### Shared state between specs
 
@@ -353,8 +448,8 @@ piece of work.
 - **The store is in-memory** (`lib/state/mockDatabase.ts`) and resets on
   restart. Persistence is the obvious next step; the class interface is already
   the seam to put it behind.
-- **Escalation messages are simulated, not sent.** No email, SMS or WhatsApp
-  provider is wired in.
+- **SMS and WhatsApp are still simulated.** Email is wired up (see
+  [Email](#-email)); the other two channels are not.
 - **Passphrase recovery does not exist.** By design — but it means a forgotten
   passphrase is unrecoverable, and the UI does not yet say so loudly enough for
   this audience.

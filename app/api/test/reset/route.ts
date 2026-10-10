@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/state/mockDatabase";
+import { resetOutbox } from "@/lib/email";
 
 /**
  * Resets the in-memory store so end-to-end specs do not leak state into one
@@ -20,6 +21,7 @@ export async function POST() {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   db.resetForTesting();
+  resetOutbox();
   return NextResponse.json({ success: true });
 }
 

@@ -38,8 +38,17 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      // Unlocks /api/test/reset for the duration of the run only.
+      // Unlocks /api/test/reset and /api/scheduler for this run only.
       VIRASAT_E2E: "1",
+      // Email: the console driver sends nothing, so nothing leaves the
+      // machine. An owner address is set so the escalation ladder actually
+      // has somewhere to go — without it the idempotency specs would pass
+      // vacuously, having proved only that zero sends stay zero.
+      EMAIL_DRIVER: "console",
+      EMAIL_FROM: "Virasat <hello@virasat.test>",
+      APP_URL: BASE_URL,
+      OWNER_NAME: "Test Owner",
+      OWNER_EMAIL: "owner@virasat.test",
     },
   },
 });

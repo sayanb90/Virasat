@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/state/mockDatabase";
 import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "@/lib/state/heartbeatMachine";
+import { dispatchDueEmails } from "@/lib/email/dispatch";
 
 // GET /api/heartbeat - Current safety state, honouring the user's settings
 export async function GET() {
@@ -20,6 +21,11 @@ export async function GET() {
     ? []
     : generateNotificationsForElapsedDays(elapsedDays, checkInCycleDays);
 
+  // There is no scheduler in this build, so a read is also the trigger. The
+  // dispatcher is idempotent and never throws, so this cannot send twice and
+  // cannot stop a user from telling us they are alive.
+  const emails = await dispatchDueEmails();
+
   return NextResponse.json({
     success: true,
     lastCheckInDate: db.lastCheckInDate,
@@ -29,6 +35,7 @@ export async function GET() {
     onVacation,
     vacationUntil,
     checkInCycleDays,
+    emails,
   });
 }
 
