@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db, TrustedFriendRecord } from "@/lib/state/mockDatabase";
 
@@ -30,11 +31,11 @@ export async function POST(req: Request) {
     }
 
     const friend: TrustedFriendRecord = {
-      id: `tf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `tf-${Date.now()}-${randomBytes(3).toString("hex")}`,
       name: name || email.split("@")[0],
       email,
       status: "Invited",
-      inviteToken: `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
+      inviteToken: randomBytes(32).toString("base64url"),
       createdAt: new Date().toISOString(),
     };
 

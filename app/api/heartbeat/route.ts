@@ -16,7 +16,9 @@ export async function GET() {
   // had, but escalation does not advance and no reminders are generated.
   const elapsedDays = db.simulatedElapsedDays;
   const phaseInfo = getPhaseFromElapsedDays(onVacation ? 0 : elapsedDays, checkInCycleDays);
-  const notifications = onVacation ? [] : generateNotificationsForElapsedDays(elapsedDays);
+  const notifications = onVacation
+    ? []
+    : generateNotificationsForElapsedDays(elapsedDays, checkInCycleDays);
 
   return NextResponse.json({
     success: true,

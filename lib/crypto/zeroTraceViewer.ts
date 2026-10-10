@@ -6,6 +6,7 @@
  */
 
 import { decryptPayloadToBuffer, decryptPayloadToString } from "./aes-gcm";
+import { cryptoLog } from "./log";
 
 export interface DecryptedMemoryItem {
   id: string;
@@ -30,7 +31,7 @@ export async function loadZeroTracePayload(
   ivHex: string,
   key: CryptoKey
 ): Promise<DecryptedMemoryItem> {
-  console.log(
+  cryptoLog(
     "[Virasat ZeroTrace] [Load Start] Item ID:", id,
     "| Title:", title,
     "| MimeType:", mimeType,
@@ -41,7 +42,7 @@ export async function loadZeroTracePayload(
   if (mimeType.startsWith("text/") || mimeType === "application/json") {
     try {
       const textContent = await decryptPayloadToString(ciphertextHex, ivHex, key);
-      console.log("[Virasat ZeroTrace] [Text Decrypted Success] Decrypted char length:", textContent.length);
+      cryptoLog("[Virasat ZeroTrace] [Text Decrypted Success] Decrypted char length:", textContent.length);
       return {
         id,
         title,
@@ -62,7 +63,7 @@ export async function loadZeroTracePayload(
     const blob = new Blob([rawBuffer], { type: mimeType });
     const objectUrl = URL.createObjectURL(blob);
 
-    console.log("[Virasat ZeroTrace] [Binary Decrypted Success] ByteSize:", rawBuffer.byteLength, "| Blob ObjectURL generated");
+    cryptoLog("[Virasat ZeroTrace] [Binary Decrypted Success] ByteSize:", rawBuffer.byteLength, "| Blob ObjectURL generated");
 
     return {
       id,
@@ -82,7 +83,7 @@ export async function loadZeroTracePayload(
  * Cleans up and purges volatile in-memory object URL buffers immediately upon closing viewer modal.
  */
 export function purgeZeroTraceMemory(item: DecryptedMemoryItem): void {
-  console.log("[Virasat ZeroTrace] [Purge Memory] Purging volatile memory for item:", item.id);
+  cryptoLog("[Virasat ZeroTrace] [Purge Memory] Purging volatile memory for item:", item.id);
   if (item.objectUrl) {
     URL.revokeObjectURL(item.objectUrl);
     item.objectUrl = undefined;

@@ -32,6 +32,19 @@ test.describe("Navigation", () => {
     await expect(page).toHaveURL(/\/notes$/);
   });
 
+  test("an address that does not exist gets a reassuring page, not a bare 404", async ({
+    page,
+  }) => {
+    await gotoUnlocked(page, "/notes");
+    await page.goto("/this-route-does-not-exist");
+
+    await expect(page.getByText(/That page does not exist/i)).toBeVisible();
+    // The first fear this product raises is "have I lost everything?", so the
+    // page has to answer it, and has to offer a way back.
+    await expect(page.getByText(/notes are untouched/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Go to the home screen/i })).toBeVisible();
+  });
+
   test("no screen renders the old dark theme inside the light shell", async ({ page }) => {
     // The overhaul left several pages behind once; this stops it recurring.
     const routes = [

@@ -119,7 +119,7 @@ class MockZeroKnowledgeDatabase {
 
   public logAudit(action: string, category: AuditLogRecord["category"], details: string) {
     this.auditLogs.unshift({
-      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       action,
       category,
       details,
