@@ -3,11 +3,15 @@ import assert from "assert";
 import { webcrypto } from "node:crypto";
 
 // Polyfill WebCrypto for Node environment during Cucumber execution
-if (!globalThis.crypto) {
-  (globalThis as any).crypto = webcrypto;
+// Node exposes WebCrypto under a different name, and the crypto helpers
+// expect a browser-shaped global. Narrowing the cast keeps this honest
+// without reaching for `any`.
+const globals = globalThis as unknown as { crypto?: Crypto; window?: unknown };
+if (!globals.crypto) {
+  globals.crypto = webcrypto as unknown as Crypto;
 }
-if (!globalThis.window) {
-  (globalThis as any).window = globalThis;
+if (!globals.window) {
+  globals.window = globalThis;
 }
 
 import { deriveMasterKey, bufferToHex, hexToBuffer, generateSalt } from "../../lib/crypto/argon2";
@@ -21,7 +25,7 @@ let ciphertextHex = "";
 let ivHex = "";
 let decryptedText = "";
 
-let benKeyPair: any;
+let benKeyPair: Awaited<ReturnType<typeof generateBeneficiaryKeyPair>>;
 let chestKeyHex = "";
 let encryptedEnvelopeHex = "";
 let decryptedChestKeyHex = "";

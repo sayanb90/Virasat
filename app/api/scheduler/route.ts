@@ -20,7 +20,9 @@ export async function POST(req: Request) {
 
     db.simulatedElapsedDays = newElapsedDays;
 
-    const phaseInfo = getPhaseFromElapsedDays(newElapsedDays);
+    // Report against the user's configured cycle, not the 365-day default.
+    const { checkInCycleDays } = db.getSettings();
+    const phaseInfo = getPhaseFromElapsedDays(newElapsedDays, checkInCycleDays);
     const notifications = generateNotificationsForElapsedDays(newElapsedDays);
 
     db.logAudit(

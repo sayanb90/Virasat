@@ -342,6 +342,30 @@ class MockZeroKnowledgeDatabase {
     return true;
   }
 
+  /**
+   * Returns the store to its freshly-seeded state.
+   *
+   * Exposed only for end-to-end tests, which share one server process and
+   * would otherwise leak data between specs. The route that calls this is
+   * gated behind an environment variable and does not exist in a normal run.
+   */
+  public resetForTesting(): void {
+    this.vaultItems.clear();
+    this.beneficiaries.clear();
+    this.envelopes.clear();
+    this.trustedFriends.clear();
+    this.auditLogs = [];
+    this.settings = {
+      checkInCycleDays: 365,
+      vacationUntil: null,
+      vacationStartedAt: null,
+      trustedFriendsEnabled: true,
+    };
+    this.simulatedElapsedDays = 0;
+    this.lastCheckInDate = new Date().toISOString();
+    this.seedInitialData();
+  }
+
   // Audit Logs
   public getAuditLogs(): AuditLogRecord[] {
     return this.auditLogs;

@@ -1,9 +1,13 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import assert from "assert";
-import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "../../lib/state/heartbeatMachine";
+import {
+  getPhaseFromElapsedDays,
+  generateNotificationsForElapsedDays,
+  type PhaseInfo,
+} from "../../lib/state/heartbeatMachine";
 
 let elapsedDays = 0;
-let phaseInfo: any;
+let phaseInfo: PhaseInfo;
 let notificationCount = 0;
 
 Given("the heartbeat timer starts at Day 0", function () {
