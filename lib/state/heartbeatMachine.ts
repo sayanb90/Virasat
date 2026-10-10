@@ -59,6 +59,25 @@ export const CYCLE_OPTIONS = [
 
 export const DEFAULT_CYCLE_DAYS = TOTAL_CYCLE_DAYS;
 
+/**
+ * Vacation mode is capped so it can never quietly switch the product off.
+ * Someone who paused indefinitely would never be checked on again and would
+ * have no reason to notice, which is the one failure mode that matters here.
+ */
+export const MAX_VACATION_DAYS = 183;
+
+/**
+ * Pausing is offered as durations, not a calendar date. A date picker asks a
+ * senior user to do arithmetic against today; "3 months" does not. The cap is
+ * structural — the longest option is the limit, so there is nothing to refuse.
+ */
+export const VACATION_PRESETS = [
+  { days: 14, label: "2 weeks" },
+  { days: 30, label: "1 month" },
+  { days: 90, label: "3 months" },
+  { days: MAX_VACATION_DAYS, label: "6 months" },
+] as const;
+
 export function cycleBoundaries(cycleDays: number = TOTAL_CYCLE_DAYS) {
   return {
     silentEnd: Math.round(cycleDays * PHASE_FRACTIONS.silentEnd),
@@ -157,14 +176,36 @@ export function getPhaseFromElapsedDays(
 }
 
 /**
- * Generates notification logs for all events up to simulated elapsed days
+ * Spreads `count` events evenly across a phase, matching the original
+ * 365-day design: 5 gentle reminders 12 days apart, 5 urgent alerts 3 days
+ * apart, 10 critical alerts 2 days apart. Deriving the spacing from the
+ * phase width means a 6-month or 2-year cycle gets the same *shape* of
+ * escalation rather than a schedule still pinned to 365 days.
  */
-export function generateNotificationsForElapsedDays(elapsedDays: number): EscalationNotification[] {
-  const notifications: EscalationNotification[] = [];
+function scheduleWithin(start: number, end: number, count: number): number[] {
+  const step = (end - start) / count;
+  return Array.from({ length: count }, (_, i) => Math.round(start + i * step));
+}
 
-  // Phase 1: Days 270 to 330 (5 emails)
-  const phase1Intervals = [270, 282, 294, 306, 318];
-  phase1Intervals.forEach((day, index) => {
+/**
+ * Generates notification logs for all events up to simulated elapsed days.
+ *
+ * `cycleDays` must be the user's configured check-in interval. Passing the
+ * default when the user is on a different cycle produces a log that disagrees
+ * with the phase badge they can see on screen.
+ */
+export function generateNotificationsForElapsedDays(
+  elapsedDays: number,
+  cycleDays: number = TOTAL_CYCLE_DAYS
+): EscalationNotification[] {
+  const notifications: EscalationNotification[] = [];
+  const bounds = cycleBoundaries(cycleDays);
+  const timestampFor = (day: number) =>
+    new Date(Date.now() - (elapsedDays - day) * 86400000).toLocaleString();
+  const daysLeft = (day: number) => bounds.total - day;
+
+  // Phase 1: gentle reminders across the first escalation window (5 emails).
+  scheduleWithin(bounds.silentEnd, bounds.gentleEnd, 5).forEach((day, index) => {
     if (elapsedDays >= day) {
       notifications.push({
         id: `notif-p1-${index + 1}`,
@@ -174,16 +215,15 @@ export function generateNotificationsForElapsedDays(elapsedDays: number): Escala
         channel: "Email",
         recipient: "owner@virasat.vault",
         sentAtSimulatedDay: day,
-        timestamp: new Date(Date.now() - (elapsedDays - day) * 86400000).toLocaleString(),
+        timestamp: timestampFor(day),
         status: "Delivered",
-        previewText: `Friendly reminder: Please confirm your safety status on Virasat. Your silent period ends in ${365 - day} days.`,
+        previewText: `Friendly reminder: Please confirm your safety status on Virasat. Your silent period ends in ${daysLeft(day)} days.`,
       });
     }
   });
 
-  // Phase 2: Days 330 to 345 (5 emails)
-  const phase2Intervals = [330, 333, 336, 339, 342];
-  phase2Intervals.forEach((day, index) => {
+  // Phase 2: urgent escalation (5 alerts).
+  scheduleWithin(bounds.gentleEnd, bounds.urgentEnd, 5).forEach((day, index) => {
     if (elapsedDays >= day) {
       notifications.push({
         id: `notif-p2-${index + 1}`,
@@ -193,47 +233,47 @@ export function generateNotificationsForElapsedDays(elapsedDays: number): Escala
         channel: "Email",
         recipient: "owner@virasat.vault",
         sentAtSimulatedDay: day,
-        timestamp: new Date(Date.now() - (elapsedDays - day) * 86400000).toLocaleString(),
+        timestamp: timestampFor(day),
         status: "Delivered",
-        previewText: `Action required: Virasat safety escalation activated. Vault payload will be made accessible to designated beneficiaries in ${365 - day} days.`,
+        previewText: `Action required: Virasat safety escalation activated. Vault payload will be made accessible to designated beneficiaries in ${daysLeft(day)} days.`,
       });
     }
   });
 
-  // Phase 3: Days 345 to 365 (10 daily emails + SMS)
-  for (let day = 345; day < 365; day += 2) {
-    if (elapsedDays >= day) {
-      const idx = Math.floor((day - 345) / 2) + 1;
-      notifications.push({
-        id: `notif-p3-email-${idx}`,
-        phase: 3,
-        phaseName: "Phase 3: Critical Countdown",
-        title: `CRITICAL COUNTDOWN: ${365 - day} Days to Vault Release`,
-        channel: "Email",
-        recipient: "owner@virasat.vault",
-        sentAtSimulatedDay: day,
-        timestamp: new Date(Date.now() - (elapsedDays - day) * 86400000).toLocaleString(),
-        status: "Delivered",
-        previewText: `FINAL WARNING: ${365 - day} days remaining. Tap 'I AM SAFE & WELL' in Virasat to reset your 1-year timer before beneficiary envelopes are released.`,
-      });
+  // Phase 3: critical countdown (10 paired email + SMS alerts).
+  scheduleWithin(bounds.urgentEnd, bounds.total, 10).forEach((day, index) => {
+    if (elapsedDays < day) return;
+    const idx = index + 1;
 
-      notifications.push({
-        id: `notif-p3-sms-${idx}`,
-        phase: 3,
-        phaseName: "Phase 3: Critical Countdown",
-        title: `SMS Alert: ${365 - day} Days Remaining`,
-        channel: "SMS",
-        recipient: "+1 (555) 019-8293",
-        sentAtSimulatedDay: day,
-        timestamp: new Date(Date.now() - (elapsedDays - day) * 86400000).toLocaleString(),
-        status: "Delivered",
-        previewText: `[Virasat] Critical Safety Alert: ${365 - day} days until digital vault release. Open app to confirm safety.`,
-      });
-    }
-  }
+    notifications.push({
+      id: `notif-p3-email-${idx}`,
+      phase: 3,
+      phaseName: "Phase 3: Critical Countdown",
+      title: `CRITICAL COUNTDOWN: ${daysLeft(day)} Days to Vault Release`,
+      channel: "Email",
+      recipient: "owner@virasat.vault",
+      sentAtSimulatedDay: day,
+      timestamp: timestampFor(day),
+      status: "Delivered",
+      previewText: `FINAL WARNING: ${daysLeft(day)} days remaining. Tap 'I AM SAFE & WELL' in Virasat to reset your check-in timer before beneficiary envelopes are released.`,
+    });
 
-  // Phase 4: Release Trigger
-  if (elapsedDays >= 365) {
+    notifications.push({
+      id: `notif-p3-sms-${idx}`,
+      phase: 3,
+      phaseName: "Phase 3: Critical Countdown",
+      title: `SMS Alert: ${daysLeft(day)} Days Remaining`,
+      channel: "SMS",
+      recipient: "+1 (555) 019-8293",
+      sentAtSimulatedDay: day,
+      timestamp: timestampFor(day),
+      status: "Delivered",
+      previewText: `[Virasat] Critical Safety Alert: ${daysLeft(day)} days until digital vault release. Open app to confirm safety.`,
+    });
+  });
+
+  // Phase 4: release trigger.
+  if (elapsedDays >= bounds.total) {
     notifications.push({
       id: "notif-p4-release",
       phase: 4,
@@ -241,10 +281,11 @@ export function generateNotificationsForElapsedDays(elapsedDays: number): Escala
       title: "DIGITAL ESTATE RELEASED: Beneficiary Envelopes Unlocked",
       channel: "Email",
       recipient: "beneficiaries@virasat.vault",
-      sentAtSimulatedDay: 365,
+      sentAtSimulatedDay: bounds.total,
       timestamp: new Date().toLocaleString(),
       status: "Delivered",
-      previewText: "Notice of Digital Estate Release: The 1-year safety protocol has expired without check-in. Designated beneficiaries may now claim their encrypted chest keys.",
+      previewText:
+        "Notice of Digital Estate Release: The safety protocol has expired without check-in. Designated beneficiaries may now claim their encrypted chest keys.",
     });
   }
 

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     const newBen: BeneficiaryRecord = {
-      id: `ben-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `ben-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name,
       relationship: relationship || "Beneficiary",
       email,

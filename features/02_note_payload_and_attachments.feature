@@ -1,7 +1,11 @@
-Feature: Secret Editor & Dual Notes/Attachment Management
-  As a Virasat vault owner
-  I want to save both plaintext passwords/notes and attached PDF/Image files in a single vault item
-  So that I can edit my notes, download my files, replace attachments, or delete files without losing my notes
+Feature: Note Payload and Attachments
+  As someone keeping both written details and a scanned document in one note
+  I want the text and the file to survive every edit
+  So that changing one never quietly corrupts or drops the other
+
+  # These exercise packAndEncryptSecretPayload / decryptAndUnpackSecretPayload
+  # directly. The editor component they were first written against is gone;
+  # the codec they test is used on every note save.
 
   Scenario: Pack text notes and a PDF file attachment into a unified payload
     Given secret title "Estate Deed & Passwords"

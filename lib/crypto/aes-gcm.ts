@@ -5,6 +5,7 @@
  */
 
 import { bufferToHex, hexToBuffer, toArrayBuffer } from "./argon2";
+import { cryptoLog } from "./log";
 
 export interface EncryptedPayload {
   ciphertextHex: string;
@@ -17,7 +18,7 @@ export interface EncryptedPayload {
  * Generate a random 256-bit AES-GCM Chest Key (K_chest)
  */
 export async function generateChestKey(): Promise<CryptoKey> {
-  console.log("[Virasat Crypto] [AES-GCM] Generating new 256-bit AES-GCM Chest Key...");
+  cryptoLog("[AES-GCM] Generating new 256-bit AES-GCM Chest Key...");
   return window.crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },
     true,
@@ -31,7 +32,7 @@ export async function generateChestKey(): Promise<CryptoKey> {
 export async function exportKeyToHex(key: CryptoKey): Promise<string> {
   const exported = await window.crypto.subtle.exportKey("raw", key);
   const hex = bufferToHex(exported);
-  console.log("[Virasat Crypto] [AES-GCM] Exported key to hex preview:", hex.substring(0, 16) + "...");
+  cryptoLog("[AES-GCM] Exported a", hex.length / 2, "byte key to hex.");
   return hex;
 }
 
@@ -39,7 +40,7 @@ export async function exportKeyToHex(key: CryptoKey): Promise<string> {
  * Imports a raw hex key string back to AES-GCM CryptoKey.
  */
 export async function importKeyFromHex(hexKey: string): Promise<CryptoKey> {
-  console.log("[Virasat Crypto] [AES-GCM] Importing key from hex len:", hexKey?.length);
+  cryptoLog("[AES-GCM] Importing key from hex len:", hexKey?.length);
   const buffer = hexToBuffer(hexKey);
   return window.crypto.subtle.importKey(
     "raw",
@@ -71,12 +72,11 @@ export async function encryptPayload(
     dataBuffer = data;
   }
 
-  console.log(
-    "[Virasat Crypto] [AES-GCM Encrypt] Input data byteLen:",
+  cryptoLog(
+    "[AES-GCM Encrypt] Input data byteLen:",
     dataBuffer.byteLength,
-    "| Generated IV hex:",
-    ivHex,
-    "(byteLen:", iv.byteLength, ")"
+    "| IV byteLen:",
+    iv.byteLength
   );
 
   try {
@@ -88,11 +88,9 @@ export async function encryptPayload(
 
     const ciphertextHex = bufferToHex(ciphertextBuffer);
 
-    console.log(
-      "[Virasat Crypto] [AES-GCM Encrypt Success] Ciphertext byteLen:",
-      ciphertextBuffer.byteLength,
-      "| Ciphertext hex preview:",
-      ciphertextHex.substring(0, 24) + "..."
+    cryptoLog(
+      "[AES-GCM Encrypt Success] Ciphertext byteLen:",
+      ciphertextBuffer.byteLength
     );
 
     return {
@@ -115,18 +113,18 @@ export async function decryptPayloadToBuffer(
   ivHex: string,
   key: CryptoKey
 ): Promise<ArrayBuffer> {
-  console.log(
-    "[Virasat Crypto] [AES-GCM Decrypt Start]",
+  cryptoLog(
+    "[AES-GCM Decrypt Start]",
     "| ciphertextHex len:", ciphertextHex?.length,
-    "| ivHex:", ivHex, "(len:", ivHex?.length, ")",
+    "| ivHex len:", ivHex?.length,
     "| Key algorithm:", key?.algorithm?.name
   );
 
   const ciphertextBytes = hexToBuffer(ciphertextHex);
   const ivBytes = hexToBuffer(ivHex);
 
-  console.log(
-    "[Virasat Crypto] [AES-GCM Decrypt Bytes]",
+  cryptoLog(
+    "[AES-GCM Decrypt Bytes]",
     "| ciphertextBytes byteLen:", ciphertextBytes.byteLength,
     "| ivBytes byteLen:", ivBytes.byteLength
   );
@@ -145,8 +143,8 @@ export async function decryptPayloadToBuffer(
       toArrayBuffer(ciphertextBytes)
     );
 
-    console.log(
-      "[Virasat Crypto] [AES-GCM Decrypt Success] Decrypted byteLen:",
+    cryptoLog(
+      "[AES-GCM Decrypt Success] Decrypted byteLen:",
       decryptedBuffer.byteLength
     );
 

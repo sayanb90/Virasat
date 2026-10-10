@@ -5,6 +5,8 @@
  * Zero-Knowledge Guarantee: Passphrase & Master Key NEVER leave the client.
  */
 
+import { cryptoLog } from "./log";
+
 export interface DerivedKeyResult {
   key: CryptoKey;
   saltHex: string;
@@ -59,7 +61,7 @@ export function generateSalt(): string {
   const saltBytes = new Uint8Array(16);
   window.crypto.getRandomValues(saltBytes);
   const saltHex = bufferToHex(saltBytes);
-  console.log("[Virasat Crypto] [Salt Gen] New random salt generated:", saltHex);
+  cryptoLog("[Salt Gen] New 16-byte random salt generated.");
   return saltHex;
 }
 
@@ -71,15 +73,15 @@ export async function deriveMasterKey(
   passphrase: string,
   existingSaltHex?: string
 ): Promise<DerivedKeyResult> {
-  console.log("[Virasat Crypto] [KDF Start] Deriving Master Key K_master...");
+  cryptoLog("[KDF Start] Deriving Master Key K_master...");
   const saltHex = existingSaltHex || generateSalt();
-  console.log("[Virasat Crypto] [KDF Salt] Using saltHex:", saltHex, "(len:", saltHex.length, ")");
+  cryptoLog("[KDF Salt] Salt hex length:", saltHex.length);
 
   const encoder = new TextEncoder();
   const passphraseBuffer = encoder.encode(passphrase);
   const saltBuffer = hexToBuffer(saltHex);
 
-  console.log("[Virasat Crypto] [KDF Buffer] Passphrase byte len:", passphraseBuffer.length, "Salt byte len:", saltBuffer.length);
+  cryptoLog("[KDF Buffer] Passphrase byte len:", passphraseBuffer.length, "Salt byte len:", saltBuffer.length);
 
   try {
     // Import raw passphrase material
@@ -109,7 +111,7 @@ export async function deriveMasterKey(
     const rawKeyBuffer = await window.crypto.subtle.exportKey("raw", derivedCryptoKey);
     const keyRawHex = bufferToHex(rawKeyBuffer);
 
-    console.log("[Virasat Crypto] [KDF Success] Derived K_master raw hex preview:", keyRawHex.substring(0, 16) + "...");
+    cryptoLog("[KDF Success] Derived K_master,", keyRawHex.length / 2, "bytes.");
 
     return {
       key: derivedCryptoKey,
@@ -126,7 +128,7 @@ export async function deriveMasterKey(
  * Re-derives a CryptoKey from a raw key hex string for session restoration.
  */
 export async function keyFromHex(keyHex: string): Promise<CryptoKey> {
-  console.log("[Virasat Crypto] [Key From Hex] Importing key from hex preview:", keyHex.substring(0, 16) + "...");
+  cryptoLog("[Key From Hex] Importing a", keyHex.length / 2, "byte key.");
   const keyBytes = hexToBuffer(keyHex);
   return window.crypto.subtle.importKey(
     "raw",

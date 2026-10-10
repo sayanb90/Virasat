@@ -2,8 +2,22 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/state/mockDatabase";
 import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "@/lib/state/heartbeatMachine";
 
-// POST /api/scheduler - Time Machine Simulator Endpoint
+/**
+ * POST /api/scheduler - time machine, for tests only.
+ *
+ * This endpoint can advance the simulated clock past the end of the cycle,
+ * which releases the vault to beneficiaries. Nothing in the UI calls it, so
+ * leaving it reachable would hand any unauthenticated caller a remote
+ * "release my vault now" button. Gated exactly like /api/test/reset: it 404s
+ * unless VIRASAT_E2E=1, which only the Playwright config sets.
+ */
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
+  if (process.env.VIRASAT_E2E !== "1") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const body = await req.json();
     const { action, advanceDays, setToDay } = body;
@@ -20,8 +34,10 @@ export async function POST(req: Request) {
 
     db.simulatedElapsedDays = newElapsedDays;
 
-    const phaseInfo = getPhaseFromElapsedDays(newElapsedDays);
-    const notifications = generateNotificationsForElapsedDays(newElapsedDays);
+    // Report against the user's configured cycle, not the 365-day default.
+    const { checkInCycleDays } = db.getSettings();
+    const phaseInfo = getPhaseFromElapsedDays(newElapsedDays, checkInCycleDays);
+    const notifications = generateNotificationsForElapsedDays(newElapsedDays, checkInCycleDays);
 
     db.logAudit(
       "Time Machine Simulator Triggered",

@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/state/mockDatabase";
 import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "@/lib/state/heartbeatMachine";
+import { dispatchDueEmails } from "@/lib/email/dispatch";
 
 // GET /api/heartbeat - Current safety state, honouring the user's settings
 export async function GET() {
+  // No scheduler here, so an expired hold is closed out the next time anyone
+  // looks. Doing it before reading settings means the credit is already
+  // applied to what we report.
+  db.settleVacationIfExpired();
+
   const { checkInCycleDays, vacationUntil } = db.getSettings();
   const onVacation = db.isOnVacation();
 
@@ -11,7 +17,14 @@ export async function GET() {
   // had, but escalation does not advance and no reminders are generated.
   const elapsedDays = db.simulatedElapsedDays;
   const phaseInfo = getPhaseFromElapsedDays(onVacation ? 0 : elapsedDays, checkInCycleDays);
-  const notifications = onVacation ? [] : generateNotificationsForElapsedDays(elapsedDays);
+  const notifications = onVacation
+    ? []
+    : generateNotificationsForElapsedDays(elapsedDays, checkInCycleDays);
+
+  // There is no scheduler in this build, so a read is also the trigger. The
+  // dispatcher is idempotent and never throws, so this cannot send twice and
+  // cannot stop a user from telling us they are alive.
+  const emails = await dispatchDueEmails();
 
   return NextResponse.json({
     success: true,
@@ -22,6 +35,7 @@ export async function GET() {
     onVacation,
     vacationUntil,
     checkInCycleDays,
+    emails,
   });
 }
 
