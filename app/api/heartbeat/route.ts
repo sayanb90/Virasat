@@ -4,6 +4,11 @@ import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "@/
 
 // GET /api/heartbeat - Current safety state, honouring the user's settings
 export async function GET() {
+  // No scheduler here, so an expired hold is closed out the next time anyone
+  // looks. Doing it before reading settings means the credit is already
+  // applied to what we report.
+  db.settleVacationIfExpired();
+
   const { checkInCycleDays, vacationUntil } = db.getSettings();
   const onVacation = db.isOnVacation();
 

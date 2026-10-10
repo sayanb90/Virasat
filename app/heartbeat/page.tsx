@@ -1,148 +1,194 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { HeartPulse, Mail, CheckCircle2, AlertTriangle, ShieldCheck, Flame, Bell, Send } from "lucide-react";
-import { HeartbeatTimeline } from "@/components/HeartbeatTimeline";
-import { TimeMachineControl } from "@/components/TimeMachineControl";
-import { PhaseInfo, EscalationNotification } from "@/lib/state/heartbeatMachine";
+import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { CircleCheck, Pause, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Eyebrow, PageTitle } from "@/components/ui/Page";
+import { Button } from "@/components/ui/Button";
+import type { PhaseInfo } from "@/lib/state/heartbeatMachine";
 
-export default function HeartbeatPage() {
-  const [heartbeatState, setHeartbeatState] = useState<{
-    simulatedElapsedDays: number;
-    phaseInfo: PhaseInfo;
-    notifications: EscalationNotification[];
-    lastCheckInDate: string;
-  } | null>(null);
+interface SafetyState {
+  simulatedElapsedDays: number;
+  phaseInfo: PhaseInfo;
+  lastCheckInDate: string;
+  onVacation: boolean;
+  vacationUntil: string | null;
+  checkInCycleDays: number;
+}
 
-  const fetchHeartbeatState = async () => {
-    try {
-      const res = await fetch("/api/heartbeat");
-      const data = await res.json();
-      if (data.success) {
-        setHeartbeatState(data);
-      }
-    } catch (err) {
-      console.error("Fetch heartbeat error:", err);
-    }
+/** Plain-language status, deliberately free of phase numbers and percentages. */
+function describe(state: SafetyState): {
+  tone: "calm" | "paused" | "attention";
+  headline: string;
+  detail: string;
+} {
+  if (state.onVacation && state.vacationUntil) {
+    const until = new Date(state.vacationUntil).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    return {
+      tone: "paused",
+      headline: "Your safety timer is paused",
+      detail: `You told us you are away until ${until}. We will not contact you before then, and the time you are away is added back when you return.`,
+    };
+  }
+
+  if (state.phaseInfo.isTriggered) {
+    return {
+      tone: "attention",
+      headline: "Your notes are being passed on",
+      detail:
+        "We did not hear from you in time, so your Beneficiary is being given access. Check in now if you are alright.",
+    };
+  }
+
+  if (state.phaseInfo.phase === 0) {
+    return {
+      tone: "calm",
+      headline: "You are all set",
+      detail:
+        "There is nothing for you to do. Virasat stays quiet and will only get in touch if a long time passes without hearing from you.",
+    };
+  }
+
+  return {
+    tone: "attention",
+    headline: "We have been trying to reach you",
+    detail: `Please confirm you are well. If we do not hear from you within ${state.phaseInfo.daysRemaining} days, we will begin passing your notes on.`,
   };
+}
+
+export default function SafetyCheckInPage() {
+  const [state, setState] = useState<SafetyState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [justCheckedIn, setJustCheckedIn] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    fetchHeartbeatState();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/heartbeat");
+        const data = await res.json();
+        if (!cancelled && data.success) setState(data);
+      } catch (err) {
+        console.error("Could not load safety state:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
+
+  const checkIn = useCallback(async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/heartbeat", { method: "POST" });
+      if ((await res.json()).success) {
+        setJustCheckedIn(true);
+        setReloadToken((n) => n + 1);
+      }
+    } catch (err) {
+      console.error("Check-in failed:", err);
+    } finally {
+      setSaving(false);
+    }
   }, []);
 
-  const handleUpdateElapsedDays = (newElapsedDays: number) => {
-    fetchHeartbeatState();
-  };
+  if (!state) {
+    return <p className="py-14 text-center text-[17px] text-[var(--text-muted)]">Loading…</p>;
+  }
+
+  const status = describe(state);
+  const Icon =
+    status.tone === "calm" ? CircleCheck : status.tone === "paused" ? Pause : TriangleAlert;
+  const accent =
+    status.tone === "calm"
+      ? { bg: "var(--success-soft)", fg: "var(--success)" }
+      : status.tone === "paused"
+        ? { bg: "var(--action-soft)", fg: "var(--action)" }
+        : { bg: "var(--marigold-soft)", fg: "var(--marigold)" };
+
+  const lastCheckIn = new Date(state.lastCheckInDate).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
-    <div className="space-y-8">
-      {/* Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0E101B] border border-white/10 p-6 rounded-2xl shadow-xl">
-        <div className="flex items-center space-x-4">
-          <div className="p-3 bg-rose-500/10 rounded-2xl border border-rose-500/30 text-rose-400">
-            <HeartPulse className="w-8 h-8 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-white">1-Year Heartbeat & Escalation Control</h1>
-            <p className="text-xs text-gray-400 font-mono mt-0.5">
-              Automated Dead Man&apos;s Switch State Machine • Zero-Intrusion Silent Engine
-            </p>
-          </div>
-        </div>
+    <div className="pb-12">
+      <Eyebrow>Safety check-in</Eyebrow>
+      <PageTitle>Are you well?</PageTitle>
 
-        {heartbeatState && (
-          <div className="px-4 py-2 rounded-xl bg-black/40 border border-white/10 text-xs font-mono text-gray-300">
-            <span>Last Check-In: </span>
-            <span className="text-emerald-400 font-bold">
-              {new Date(heartbeatState.lastCheckInDate).toLocaleDateString()}
-            </span>
-          </div>
-        )}
+      <div
+        className="rounded-[18px] p-5"
+        style={{ backgroundColor: accent.bg }}
+      >
+        <Icon
+          className="mb-3 h-10 w-10"
+          style={{ color: accent.fg }}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+        <h2 className="text-[22px] font-bold leading-snug text-[var(--text)]">
+          {status.headline}
+        </h2>
+        <p className="mt-2 text-[17px] leading-relaxed text-[var(--text)]">{status.detail}</p>
       </div>
 
-      {/* Heartbeat Timeline Component */}
-      {heartbeatState && (
-        <HeartbeatTimeline
-          phaseInfo={heartbeatState.phaseInfo}
-          elapsedDays={heartbeatState.simulatedElapsedDays}
-        />
+      {justCheckedIn && (
+        <p role="status" className="mt-4 text-[17px] font-semibold text-[var(--success)]">
+          Thank you — we have noted that you are well.
+        </p>
       )}
 
-      {/* Time Machine Fast-Forward Simulator */}
-      {heartbeatState && (
-        <TimeMachineControl
-          currentElapsedDays={heartbeatState.simulatedElapsedDays}
-          onUpdate={handleUpdateElapsedDays}
-        />
+      {!state.onVacation && (
+        <div className="mt-6">
+          <Button size="lg" onClick={checkIn} disabled={saving}>
+            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+            {saving ? "One moment…" : "I am safe and well"}
+          </Button>
+        </div>
       )}
 
-      {/* Transactional Email Dispatcher Log */}
-      <div className="bg-[#0D0F18] border border-white/10 rounded-2xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-sky-500/10 rounded-xl border border-sky-500/30 text-sky-400">
-              <Mail className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Escalation Notification Logs</h3>
-              <p className="text-xs text-gray-400 font-mono">
-                Transactional Email / SMS Dispatches (Resend API Integration Simulator)
-              </p>
-            </div>
+      <dl className="mt-9 divide-y divide-[var(--border)] border-y border-[var(--border)]">
+        <div className="flex items-baseline justify-between gap-4 py-4">
+          <dt className="text-[17px] text-[var(--text-muted)]">Last heard from you</dt>
+          <dd className="text-[17px] font-semibold text-[var(--text)]">{lastCheckIn}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4 py-4">
+          <dt className="text-[17px] text-[var(--text-muted)]">You check in</dt>
+          <dd className="text-[17px] font-semibold text-[var(--text)]">
+            {state.checkInCycleDays === 365
+              ? "Once a year"
+              : `Every ${state.checkInCycleDays} days`}
+          </dd>
+        </div>
+        {!state.onVacation && !state.phaseInfo.isTriggered && (
+          <div className="flex items-baseline justify-between gap-4 py-4">
+            <dt className="text-[17px] text-[var(--text-muted)]">Quiet for another</dt>
+            <dd className="text-[17px] font-semibold text-[var(--text)]">
+              {state.phaseInfo.daysRemaining} days
+            </dd>
           </div>
+        )}
+      </dl>
 
-          <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-mono text-gray-400 border border-white/10">
-            {heartbeatState?.notifications?.length || 0} Alerts Dispatched
-          </span>
-        </div>
-
-        {/* Notifications List */}
-        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-          {heartbeatState?.notifications?.length === 0 ? (
-            <div className="py-8 text-center text-gray-500 font-mono text-xs space-y-2">
-              <ShieldCheck className="w-8 h-8 text-emerald-400/60 mx-auto" />
-              <p>Phase 0 (Silent Period): Zero emails sent during the first 9 months.</p>
-              <p className="text-gray-600">Use the Time-Machine simulator above to advance to Month 9+.</p>
-            </div>
-          ) : (
-            heartbeatState?.notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                        notif.phase === 1
-                          ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
-                          : notif.phase === 2
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                          : notif.phase === 3
-                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                          : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                      }`}
-                    >
-                      {notif.phaseName}
-                    </span>
-                    <span className="font-bold text-white">{notif.title}</span>
-                  </div>
-                  <p className="text-gray-400 font-mono text-[11px]">{notif.previewText}</p>
-                </div>
-
-                <div className="text-right shrink-0 font-mono text-[11px] space-y-0.5">
-                  <div className="text-gray-300">
-                    {notif.channel}: {notif.recipient}
-                  </div>
-                  <div className="text-emerald-400 flex items-center justify-end space-x-1">
-                    <Send className="w-3 h-3" />
-                    <span>Day {notif.sentAtSimulatedDay} (Simulated)</span>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3">
+        <Link
+          href="/settings"
+          className="text-[18px] font-semibold text-[var(--action)] hover:underline"
+        >
+          {state.onVacation ? "Manage vacation mode" : "Going away? Pause check-ins"}
+        </Link>
+        <Link
+          href="/beneficiaries"
+          className="text-[18px] font-semibold text-[var(--action)] hover:underline"
+        >
+          Who receives your notes
+        </Link>
       </div>
     </div>
   );

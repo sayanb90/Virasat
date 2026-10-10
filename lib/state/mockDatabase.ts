@@ -64,6 +64,8 @@ export interface AccountSettings {
   checkInCycleDays: number;
   /** ISO date; while in the future the escalation clock does not advance. */
   vacationUntil: string | null;
+  /** When the current hold began, so the paused time can be credited back. */
+  vacationStartedAt: string | null;
   trustedFriendsEnabled: boolean;
 }
 
@@ -85,6 +87,7 @@ class MockZeroKnowledgeDatabase {
   private settings: AccountSettings = {
     checkInCycleDays: 365,
     vacationUntil: null,
+    vacationStartedAt: null,
     trustedFriendsEnabled: true,
   };
   public simulatedElapsedDays: number = 0;
@@ -235,6 +238,66 @@ class MockZeroKnowledgeDatabase {
   public isOnVacation(now: Date = new Date()): boolean {
     if (!this.settings.vacationUntil) return false;
     return new Date(this.settings.vacationUntil).getTime() > now.getTime();
+  }
+
+  /** Begins a hold. The caller is responsible for enforcing the cap. */
+  public startVacation(until: Date, now: Date = new Date()): AccountSettings {
+    this.settings = {
+      ...this.settings,
+      vacationUntil: until.toISOString(),
+      vacationStartedAt: now.toISOString(),
+    };
+    this.logAudit(
+      "Vacation Mode Started",
+      "Heartbeat",
+      `Safety timer paused until ${until.toISOString().slice(0, 10)}.`
+    );
+    return this.getSettings();
+  }
+
+  /**
+   * Ends a hold and gives the paused time back.
+   *
+   * Without this, a month away would leave the user a month closer to release
+   * than when they left — the pause would quietly cost them the very time it
+   * was meant to protect. Called both when the user returns early and lazily
+   * when an expired hold is next observed, since there is no scheduler here.
+   */
+  public settleVacation(now: Date = new Date()): AccountSettings {
+    const { vacationStartedAt, vacationUntil } = this.settings;
+    if (!vacationStartedAt && !vacationUntil) return this.getSettings();
+
+    let pausedDays = 0;
+    if (vacationStartedAt) {
+      const started = new Date(vacationStartedAt).getTime();
+      // Credit only up to the hold's own end date, so an expired hold noticed
+      // months later does not hand back time that was never protected.
+      const plannedEnd = vacationUntil ? new Date(vacationUntil).getTime() : now.getTime();
+      const endedAt = Math.min(now.getTime(), plannedEnd);
+      pausedDays = Math.max(0, Math.floor((endedAt - started) / 86_400_000));
+    }
+
+    if (pausedDays > 0) {
+      this.simulatedElapsedDays = Math.max(0, this.simulatedElapsedDays - pausedDays);
+      this.lastCheckInDate = new Date(
+        new Date(this.lastCheckInDate).getTime() + pausedDays * 86_400_000
+      ).toISOString();
+    }
+
+    this.settings = { ...this.settings, vacationUntil: null, vacationStartedAt: null };
+    this.logAudit(
+      "Vacation Mode Ended",
+      "Heartbeat",
+      `Safety timer resumed. ${pausedDays} paused day(s) credited back.`
+    );
+    return this.getSettings();
+  }
+
+  /** Lazily closes out a hold whose end date has already passed. */
+  public settleVacationIfExpired(now: Date = new Date()): void {
+    if (this.settings.vacationUntil && !this.isOnVacation(now)) {
+      this.settleVacation(now);
+    }
   }
 
   // Trusted Friends

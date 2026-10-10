@@ -59,6 +59,25 @@ export const CYCLE_OPTIONS = [
 
 export const DEFAULT_CYCLE_DAYS = TOTAL_CYCLE_DAYS;
 
+/**
+ * Vacation mode is capped so it can never quietly switch the product off.
+ * Someone who paused indefinitely would never be checked on again and would
+ * have no reason to notice, which is the one failure mode that matters here.
+ */
+export const MAX_VACATION_DAYS = 183;
+
+/**
+ * Pausing is offered as durations, not a calendar date. A date picker asks a
+ * senior user to do arithmetic against today; "3 months" does not. The cap is
+ * structural — the longest option is the limit, so there is nothing to refuse.
+ */
+export const VACATION_PRESETS = [
+  { days: 14, label: "2 weeks" },
+  { days: 30, label: "1 month" },
+  { days: 90, label: "3 months" },
+  { days: MAX_VACATION_DAYS, label: "6 months" },
+] as const;
+
 export function cycleBoundaries(cycleDays: number = TOTAL_CYCLE_DAYS) {
   return {
     silentEnd: Math.round(cycleDays * PHASE_FRACTIONS.silentEnd),
