@@ -4,7 +4,7 @@ import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useLocale } from "@/lib/locale/LocaleProvider";
-import { locateSubcategory } from "@/lib/taxonomy";
+import { describeSubcategory, locateSubcategory } from "@/lib/taxonomy";
 import { useVaultSession } from "@/lib/vault/VaultSession";
 import { UnlockScreen } from "@/components/UnlockScreen";
 import { Breadcrumb, EmptyState } from "@/components/ui/Page";
@@ -20,7 +20,7 @@ export default function SubcategoryNotesPage({
   params: Promise<{ subcategoryId: string }>;
 }) {
   const { subcategoryId } = use(params);
-  const { taxonomy, ready } = useLocale();
+  const { country, taxonomy, ready } = useLocale();
   const { masterKey } = useVaultSession();
 
   const [notes, setNotes] = useState<VaultItemRecord[]>([]);
@@ -75,13 +75,44 @@ export default function SubcategoryNotesPage({
   if (!ready) return null;
 
   if (!location) {
+    // The subcategory is not in the active locale, but notes filed under it
+    // are still the user's. Show them with borrowed labels rather than
+    // claiming the category — and so the notes — do not exist.
+    const described = describeSubcategory(country, subcategoryId);
+    const orphanNotes = notes.filter((n) => n.subcategoryId === subcategoryId);
+
     return (
-      <div className="pt-4">
-        <EmptyState
-          title="We could not find that category"
-          body="It may have been renamed, or it may not apply in the country you have selected."
-          action={<ButtonLink href="/notes" size="lg">Back to categories</ButtonLink>}
+      <div className="pb-28">
+        <Breadcrumb
+          parent={{ label: described.groupLabel, href: "/notes" }}
+          current={described.subcategoryLabel}
         />
+        <p className="mb-5 rounded-[14px] bg-[var(--marigold-soft)] px-4 py-3 text-[16px] leading-relaxed text-[var(--text)]">
+          This section does not apply in the country you have selected, so it is hidden from your
+          categories. Your notes in it are safe, and will reappear if you switch back.
+        </p>
+
+        {orphanNotes.length === 0 ? (
+          <EmptyState
+            body="There is nothing filed here."
+            action={<ButtonLink href="/notes" size="lg">Back to categories</ButtonLink>}
+          />
+        ) : (
+          <ul className="space-y-3">
+            {orphanNotes.map((note) => (
+              <li key={note.id}>
+                <Link
+                  href={`/notes/${note.subcategoryId}/${note.id}`}
+                  className="block rounded-[16px] border border-[var(--border)] bg-white p-4 transition-colors hover:border-[var(--action-border)] hover:bg-[var(--action-soft)]"
+                >
+                  <p className="text-[19px] font-bold leading-snug text-[var(--text)]">
+                    {note.title}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }

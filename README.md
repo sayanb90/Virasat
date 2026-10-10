@@ -119,7 +119,7 @@ key derivation, the note payload codec with attachments, taxonomy resolution
 and locale packs, escalation phase maths, backup format, and the vacation cap
 and credit-back arithmetic.
 
-**Playwright (39 scenarios)** drives a real browser at 390×844 against the
+**Playwright (49 scenarios)** drives a real browser at 390×844 against the
 production build — not the dev server — so the specs exercise what ships:
 
 | Spec | Covers |
@@ -131,6 +131,9 @@ production build — not the dev server — so the specs exercise what ships:
 | `safety-and-settings` | plain-language safety screen, interval reaching the engine, the 6-month cap enforced server-side, pause and resume |
 | `handover` | release follows the owner's cycle rather than a hardcoded year |
 | `navigation` | every drawer destination resolves, and **no screen renders dark surfaces inside the light shell** |
+| `security` | a wrong passphrase cannot read any note body, and locking clears the session |
+| `attachments` | a file survives save and reopen, never reaches the server in the clear, and can be removed without losing the note |
+| `localisation` | switching country re-labels the tree, hides market-specific sections, and **never makes a note unreachable** |
 
 ### Shared state between specs
 
@@ -139,13 +142,21 @@ into one another. Each resets it via `POST /api/test/reset`, which returns 404
 unless `VIRASAT_E2E=1` — set only by the Playwright config. Workers are pinned
 to 1 so two specs cannot reset each other mid-run.
 
-### One known failure
+### Two known failures
 
-`handover.spec.ts` carries a `test.fixme` for a Beneficiary reading a released
-note. It is a real defect, not a flake: `saveNote()` encrypts the body with the
-owner's master key, then mints a chest key that encrypts nothing and seals
-*that* to the Beneficiary — who ends up holding a key that opens nothing. The
-test is left in place so it passes the moment the envelope scheme is fixed.
+Both are `test.fixme` — real defects, left in place so they pass the moment
+the underlying issue is fixed.
+
+**`handover.spec.ts`** — a Beneficiary cannot read a released note.
+`saveNote()` encrypts the body with the owner's master key, then mints a chest
+key that encrypts nothing and seals *that* to the Beneficiary, who ends up
+holding a key that opens nothing.
+
+**`security.spec.ts`** — a wrong passphrase still reveals note *titles*.
+`VaultItemRecord.title` is stored as plaintext, so only the body is encrypted.
+For this product a title ("Bank locker", "Will — Mr Sharma") is often as
+revealing as the body. Fixing it means moving the title inside the encrypted
+payload and decrypting the list client-side.
 
 ---
 
