@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { ArrowLeft, Menu } from "lucide-react";
-import { BrandMark } from "./BrandMark";
 
 /** Top-level routes show the menu button; anything deeper shows Back. */
 function isNested(pathname: string): boolean {
@@ -14,17 +13,20 @@ function isNested(pathname: string): boolean {
 /**
  * The app header.
  *
- * Laid out left-to-right on a single row: control, brand block, status. The
- * brand is deliberately *not* centred and there is no decorative wave under
- * the band — a centred mark flanked by a hamburger and a bell over a wave is
- * the house style of half the category, and the silhouette is the part people
- * recognise. A flat band closed by a marigold keyline is specific to us, and
- * being ~45px shorter than the old header it also gives the content more room.
+ * A marigold spine down the left edge, a serif wordmark, and the promise set
+ * in small caps beneath it. Three things are deliberate:
  *
- * The right-hand affordance says the state in words rather than badging a
- * bell. For a 65+ reader "All well" is legible at a glance where a red dot on
- * an icon is a puzzle — and an unexplained badge is exactly the low-grade
- * alarm this product is supposed to avoid.
+ * - **The spine, not a wave.** The old header dissolved into a two-crest wave,
+ *   which was the most recognisable borrowed element in the layout. A vertical
+ *   edge block is a different device entirely, and it costs no height.
+ * - **A serif wordmark.** "Virasat" means inheritance. Every app in this
+ *   category sets its name in the same geometric sans next to a shield; a serif
+ *   reads as something kept rather than something installed.
+ * - **Status in words.** For a 65+ reader "All well" is legible at a glance
+ *   where a coloured dot on a bell is a puzzle.
+ *
+ * The serif is scoped to the wordmark. Body copy stays in Inter, which is more
+ * legible at this app's 17px base.
  */
 export function AppHeader({
   onOpenMenu,
@@ -43,15 +45,18 @@ export function AppHeader({
     : "All well";
 
   return (
-    <header className="relative">
-      <div className="bg-[var(--ink-800)] px-3 pb-3 pt-[max(10px,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-[640px] items-center gap-2">
+    <header className="bg-[var(--ink-900)]">
+      <div className="mx-auto flex max-w-[640px] items-stretch">
+        {/* The spine runs the full height of the band, safe area included. */}
+        <div className="w-[9px] shrink-0 bg-[var(--marigold)]" aria-hidden="true" />
+
+        <div className="flex flex-1 items-center gap-2 pb-3 pl-1 pr-3 pt-[max(12px,env(safe-area-inset-top))]">
           {nested ? (
             <button
               type="button"
               onClick={() => router.back()}
               aria-label="Go back"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft className="h-7 w-7" aria-hidden="true" />
             </button>
@@ -60,7 +65,7 @@ export function AppHeader({
               type="button"
               onClick={onOpenMenu}
               aria-label="Open menu"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white"
             >
               <Menu className="h-7 w-7" aria-hidden="true" />
             </button>
@@ -69,31 +74,28 @@ export function AppHeader({
           <Link
             href="/notes"
             aria-label="Virasat home"
-            className="flex min-w-0 items-center gap-2.5 rounded-xl py-1 pr-2 text-white transition-opacity hover:opacity-90"
+            className="flex min-w-0 flex-col rounded-lg py-1 transition-opacity hover:opacity-90"
           >
-            <BrandMark className="h-[34px] w-[34px] shrink-0 text-[var(--marigold)]" />
-            <span className="flex min-w-0 flex-col">
-              <span className="text-[21px] font-bold uppercase leading-none tracking-[0.07em]">
-                Virasat
-              </span>
-              <span className="mt-[5px] truncate text-[11.5px] font-medium leading-none tracking-[0.015em] text-white/60">
-                Your legacy, kept safe
-              </span>
+            <span className="font-serif text-[27px] font-semibold leading-none tracking-[0.005em] text-white">
+              Virasat
+            </span>
+            <span className="mt-[6px] truncate text-[10.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--marigold)]">
+              Your legacy, kept safe
             </span>
           </Link>
 
           <Link
             href="/heartbeat"
             aria-label={`Safety status: ${statusLabel}`}
-            className={`ml-auto flex min-h-[48px] shrink-0 items-center gap-2 rounded-full border px-3.5 text-[14px] font-semibold transition-colors ${
+            className={`ml-auto flex min-h-[46px] shrink-0 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold transition-colors ${
               needsAttention
-                ? "border-[var(--marigold)] bg-[var(--marigold)]/15 text-white hover:bg-[var(--marigold)]/25"
-                : "border-white/25 text-white/85 hover:border-white/40 hover:text-white"
+                ? "bg-[var(--marigold)]/20 text-white hover:bg-[var(--marigold)]/30"
+                : "bg-white/[0.08] text-white/85 hover:bg-white/[0.14] hover:text-white"
             }`}
           >
             <span
-              className={`h-[9px] w-[9px] shrink-0 rounded-full ${
-                needsAttention ? "bg-[var(--marigold)]" : "bg-[var(--success)]"
+              className={`h-[8px] w-[8px] shrink-0 rounded-full ${
+                needsAttention ? "bg-[var(--marigold)]" : "bg-[#5fcf9b]"
               }`}
               aria-hidden="true"
             />
@@ -101,10 +103,6 @@ export function AppHeader({
           </Link>
         </div>
       </div>
-
-      {/* Closes the band crisply. The old two-crest wave was the single most
-          recognisable borrowed element in the whole layout. */}
-      <div className="h-[3px] w-full bg-[var(--marigold)]" aria-hidden="true" />
     </header>
   );
 }
