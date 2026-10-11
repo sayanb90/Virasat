@@ -1,4 +1,4 @@
-# Paid features: billing, entitlement and release authorisation
+# When the vault opens: release authorisation, entitlement and billing
 
 **Status:** proposal, for review. Nothing here is built yet.
 **Author:** drafted with Claude Code, 11 October 2026.
