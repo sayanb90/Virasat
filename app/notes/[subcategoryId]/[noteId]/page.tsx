@@ -4,7 +4,7 @@ import React, { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Paperclip, Trash2, UserRound } from "lucide-react";
 import { useLocale } from "@/lib/locale/LocaleProvider";
-import { locateSubcategory } from "@/lib/taxonomy";
+import { describeSubcategory, locateSubcategory } from "@/lib/taxonomy";
 import { useVaultSession } from "@/lib/vault/VaultSession";
 import { UnlockScreen } from "@/components/UnlockScreen";
 import { NoteForm } from "@/components/NoteForm";
@@ -21,7 +21,7 @@ export default function NotePage({
 }) {
   const { subcategoryId, noteId } = use(params);
   const router = useRouter();
-  const { taxonomy, ready } = useLocale();
+  const { country, taxonomy, ready } = useLocale();
   const { masterKey } = useVaultSession();
 
   const [note, setNote] = useState<VaultItemRecord | null>(null);
@@ -75,6 +75,13 @@ export default function NotePage({
   }, []);
 
   const location = locateSubcategory(taxonomy, subcategoryId);
+  // A note filed under another market's subcategory (e.g. the India-only
+  // banks.nominees, after switching to International) is still the user's
+  // note. Fall back to the cross-pack lookup for its labels rather than
+  // telling them it does not exist.
+  const labels = location
+    ? { groupLabel: location.group.label, subcategoryLabel: location.subcategory.label }
+    : describeSubcategory(country, subcategoryId);
 
   const handleDelete = async () => {
     if (!note) return;
@@ -99,7 +106,7 @@ export default function NotePage({
     return <p className="py-14 text-center text-[17px] text-[var(--text-muted)]">Opening your note…</p>;
   }
 
-  if (!note || !location) {
+  if (!note) {
     return (
       <EmptyState
         title="We could not find that note"
@@ -113,8 +120,8 @@ export default function NotePage({
     return (
       <NoteForm
         mode="edit"
-        groupLabel={location.group.label}
-        subcategoryLabel={location.subcategory.label}
+        groupLabel={labels.groupLabel}
+        subcategoryLabel={labels.subcategoryLabel}
         subcategoryId={subcategoryId}
         masterKey={masterKey}
         beneficiaries={beneficiaries}
@@ -139,7 +146,7 @@ export default function NotePage({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex-1">
-        <Breadcrumb parent={{ label: location.group.label, href: "/notes" }} current={location.subcategory.label} />
+        <Breadcrumb parent={{ label: labels.groupLabel, href: "/notes" }} current={labels.subcategoryLabel} />
 
         <h1 className="text-[30px] font-bold leading-tight tracking-[-0.02em] text-[var(--text)]">
           {note.title}

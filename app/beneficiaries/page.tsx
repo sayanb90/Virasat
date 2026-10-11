@@ -1,225 +1,259 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Users, Plus, Key, ShieldCheck, Mail, Copy, CheckCircle2, Trash2 } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Check, Copy, Mail, Plus, Trash2, UserPlus } from "lucide-react";
+import { Eyebrow, PageTitle, EmptyState } from "@/components/ui/Page";
+import { Button } from "@/components/ui/Button";
 import { generateBeneficiaryKeyPair } from "@/lib/crypto/asymmetric";
+import type { BeneficiaryRecord } from "@/lib/state/mockDatabase";
 
-export default function SeniorBeneficiariesPage() {
-  const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+export default function BeneficiaryPage() {
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [relationship, setRelationship] = useState("Spouse & Estate Executor");
-  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
-  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const [relationship, setRelationship] = useState("");
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const fetchBeneficiaries = async () => {
-    try {
-      const res = await fetch("/api/beneficiaries");
-      const data = await res.json();
-      if (data.success) {
-        setBeneficiaries(data.beneficiaries);
-      }
-    } catch (err) {
-      console.error("Fetch beneficiaries error:", err);
-    }
-  };
+  const [reloadToken, setReloadToken] = useState(0);
+  const reload = useCallback(() => setReloadToken((n) => n + 1), []);
 
   useEffect(() => {
-    fetchBeneficiaries();
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/beneficiaries");
+        const data = await res.json();
+        if (!cancelled && data.success) setBeneficiaries(data.beneficiaries);
+      } catch (err) {
+        console.error("Could not load beneficiaries:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
-  const handleAddBeneficiary = async (e: React.FormEvent) => {
+  const add = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email) return;
+    if (!name.trim() || !email.trim()) return;
 
-    setIsGeneratingKey(true);
+    setWorking(true);
+    setError("");
     try {
+      // The key pair is made here, on the device. Only the public half is ever
+      // needed to seal a note for them.
       const keyPair = await generateBeneficiaryKeyPair();
-
       const res = await fetch("/api/beneficiaries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          email,
-          relationship,
+          name: name.trim(),
+          email: email.trim(),
+          relationship: relationship.trim() || "Beneficiary",
           publicKeyPem: keyPair.publicKeyPem,
           privateKeyPem: keyPair.privateKeyPem,
         }),
       });
-
-      if (res.ok) {
-        setIsAddModalOpen(false);
-        setName("");
-        setEmail("");
-        fetchBeneficiaries();
+      if (!res.ok) {
+        setError("We could not add that person. Please try again.");
+        return;
       }
+      setName("");
+      setEmail("");
+      setRelationship("");
+      setAdding(false);
+      reload();
     } catch (err) {
-      console.error("Add beneficiary error:", err);
+      console.error("Add beneficiary failed:", err);
+      setError("We could not add that person. Please try again.");
     } finally {
-      setIsGeneratingKey(false);
+      setWorking(false);
     }
   };
 
-  const handleDeleteBeneficiary = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this loved one?")) return;
+  const remove = async (person: BeneficiaryRecord) => {
+    if (
+      !window.confirm(
+        `Remove ${person.name}? They will no longer receive any of your notes.`
+      )
+    ) {
+      return;
+    }
+    await fetch(`/api/beneficiaries?id=${encodeURIComponent(person.id)}`, { method: "DELETE" });
+    reload();
+  };
+
+  const copyRecoveryKey = async (person: BeneficiaryRecord) => {
+    if (!person.privateKeyPem) return;
     try {
-      const res = await fetch(`/api/beneficiaries?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchBeneficiaries();
-    } catch (err) {
-      console.error("Delete beneficiary error:", err);
+      await navigator.clipboard.writeText(person.privateKeyPem);
+      setCopiedId(person.id);
+      window.setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      window.prompt("Copy this recovery key and give it to them to keep safe:", person.privateKeyPem);
     }
-  };
-
-  const handleCopyPrivateKey = (pem: string, id: string) => {
-    navigator.clipboard.writeText(pem);
-    setCopiedKeyId(id);
-    setTimeout(() => setCopiedKeyId(null), 2000);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-[#0E101B] border border-white/10 p-5 rounded-2xl shadow-xl flex flex-col space-y-3">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-sky-500/10 rounded-2xl border border-sky-500/30 text-sky-400">
-            <Users className="w-7 h-7" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-white">My Trusted Loved Ones</h1>
-            <p className="text-xs text-sky-400 font-medium">
-              Family members who will receive your vault if you don&apos;t check in for 12 months.
-            </p>
-          </div>
-        </div>
+    <div className="pb-12">
+      <Eyebrow>Beneficiary</Eyebrow>
+      <PageTitle>Who receives your notes</PageTitle>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-black font-black text-xs tracking-wide transition-all shadow-[0_0_20px_rgba(56,189,248,0.3)] flex items-center justify-center space-x-2 cursor-pointer"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Add Family Member or Heir</span>
-        </button>
-      </div>
+      <p className="mb-6 text-[17px] leading-relaxed text-[var(--text-muted)]">
+        These are the people your notes will go to if you stop answering our check-ins. We will
+        not tell them they have been chosen — that is yours to share, whenever you are ready.
+      </p>
 
-      {/* Add Beneficiary Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-[#121420] border border-sky-500/30 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-white border-b border-white/10 pb-2">
-              Add Family Member
-            </h3>
+      {loading ? (
+        <p className="py-10 text-center text-[17px] text-[var(--text-muted)]">Loading…</p>
+      ) : beneficiaries.length === 0 && !adding ? (
+        <EmptyState
+          title="You have not chosen anyone yet"
+          body="Until you name someone, your notes have nowhere to go. You can change your mind at any time."
+          action={
+            <Button size="lg" onClick={() => setAdding(true)}>
+              <UserPlus className="h-5 w-5" aria-hidden="true" />
+              Choose a Beneficiary
+            </Button>
+          }
+        />
+      ) : (
+        <ul className="space-y-3">
+          {beneficiaries.map((person) => (
+            <li
+              key={person.id}
+              className="rounded-[16px] border border-[var(--border)] bg-white p-4"
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[var(--action-soft)] text-[20px] font-bold text-[var(--action)]"
+                  aria-hidden="true"
+                >
+                  {person.name.trim().charAt(0).toUpperCase()}
+                </span>
 
-            <form onSubmit={handleAddBeneficiary} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Eleanor Vance"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:border-sky-500 focus:outline-none"
-                />
-              </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[19px] font-bold leading-snug text-[var(--text)]">
+                    {person.name}
+                  </p>
+                  {person.relationship && (
+                    <p className="text-[16px] text-[var(--text-muted)]">{person.relationship}</p>
+                  )}
+                  {/* Wraps rather than truncating: half an email address
+                      tells the user nothing about which one it is. */}
+                  <p className="mt-1 flex items-start gap-1.5 text-[16px] text-[var(--text-faint)]">
+                    <Mail className="mt-[5px] h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 break-all">{person.email}</span>
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="eleanor@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Relationship</label>
-                <input
-                  type="text"
-                  placeholder="Spouse, Daughter, Son, Executor..."
-                  value={relationship}
-                  onChange={(e) => setRelationship(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-medium"
+                  onClick={() => remove(person)}
+                  aria-label={`Remove ${person.name}`}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--danger)]"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isGeneratingKey}
-                  className="px-5 py-2 rounded-xl bg-sky-500 text-black font-extrabold text-xs"
-                >
-                  {isGeneratingKey ? "Adding..." : "Save Loved One"}
+                  <Trash2 className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+
+              {person.privateKeyPem && (
+                <Button
+                  variant="secondary"
+                  onClick={() => copyRecoveryKey(person)}
+                  className="mt-3 w-full"
+                >
+                  {copiedId === person.id ? (
+                    <>
+                      <Check className="h-5 w-5" aria-hidden="true" />
+                      Copied — give it to them to keep safe
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-5 w-5" aria-hidden="true" />
+                      Copy their recovery key
+                    </>
+                  )}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
-      {/* Beneficiaries Grid */}
-      <div className="space-y-3">
-        {beneficiaries.map((ben) => (
-          <div
-            key={ben.id}
-            className="p-5 rounded-2xl bg-[#0D0F18] border border-white/10 space-y-3 shadow-md"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-purple-600 text-black font-black text-lg flex items-center justify-center shadow-md">
-                  {ben.name.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-base">{ben.name}</h3>
-                  <p className="text-xs text-sky-400 font-medium">{ben.relationship}</p>
-                </div>
-              </div>
+      {adding && (
+        <form
+          onSubmit={add}
+          className="mt-4 space-y-3 rounded-[16px] border border-[var(--border-strong)] bg-white p-4"
+        >
+          <Field id="ben-name" label="Their name" value={name} onChange={setName} placeholder="For example, Meera Bhattacharjee" required />
+          <Field id="ben-rel" label="How you know them" value={relationship} onChange={setRelationship} placeholder="For example, daughter" />
+          <Field id="ben-email" label="Their email address" value={email} onChange={setEmail} placeholder="name@example.com" type="email" required />
 
-              <button
-                onClick={() => handleDeleteBeneficiary(ben.id)}
-                className="p-2 text-gray-500 hover:text-rose-400 rounded-lg"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+          {error && (
+            <p role="alert" className="text-[16px] text-[var(--danger)]">
+              {error}
+            </p>
+          )}
 
-            <div className="flex items-center space-x-2 text-xs text-gray-400 font-mono">
-              <Mail className="w-3.5 h-3.5 text-gray-500" />
-              <span>{ben.email}</span>
-            </div>
-
-            {ben.privateKeyPem && (
-              <button
-                onClick={() => handleCopyPrivateKey(ben.privateKeyPem, ben.id)}
-                className="w-full py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center space-x-1.5 transition-all"
-              >
-                {copiedKeyId === ben.id ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Copied Heir Access Key!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Heir Key (For Testing Claim Portal)</span>
-                  </>
-                )}
-              </button>
-            )}
+          <div className="flex gap-3">
+            <Button variant="quiet" onClick={() => setAdding(false)} disabled={working} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={working} className="flex-1">
+              {working ? "Setting up…" : "Add"}
+            </Button>
           </div>
-        ))}
-      </div>
+        </form>
+      )}
+
+      {!adding && beneficiaries.length > 0 && (
+        <Button variant="secondary" onClick={() => setAdding(true)} className="mt-4 w-full">
+          <Plus className="h-5 w-5" aria-hidden="true" />
+          Add another
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function Field({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  required,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-[15px] font-semibold text-[var(--action)]">
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        required={required}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="min-h-[56px] w-full rounded-[12px] border border-[var(--border-strong)] px-4 text-[18px] outline-none focus:border-[var(--action)]"
+      />
     </div>
   );
 }

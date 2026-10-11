@@ -15,6 +15,11 @@ interface CycleOption {
   label: string;
 }
 
+interface VacationPreset {
+  days: number;
+  label: string;
+}
+
 export default function SettingsPage() {
   const { country, setCountry, taxonomy } = useLocale();
   const { masterKeyHex, lock } = useVaultSession();
@@ -22,13 +27,10 @@ export default function SettingsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [settings, setSettings] = useState<AccountSettings | null>(null);
   const [cycleOptions, setCycleOptions] = useState<CycleOption[]>([]);
+  const [vacationPresets, setVacationPresets] = useState<VacationPreset[]>([]);
   const [onVacation, setOnVacation] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revealKey, setRevealKey] = useState(false);
-  // Earliest selectable vacation end date. Computed when the panel is opened
-  // rather than during render: Date.now() is impure, and this way the value is
-  // also correct if the app has been left open past midnight.
-  const [earliestVacationEnd, setEarliestVacationEnd] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +41,7 @@ export default function SettingsPage() {
         if (cancelled || !data.success) return;
         setSettings(data.settings);
         setCycleOptions(data.cycleOptions);
+        setVacationPresets(data.vacationPresets ?? []);
         setOnVacation(data.onVacation);
       } catch (err) {
         console.error("Could not load settings:", err);
@@ -49,7 +52,7 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const patch = async (body: Partial<AccountSettings>) => {
+  const patch = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
       const res = await fetch("/api/settings", {
@@ -69,12 +72,7 @@ export default function SettingsPage() {
     }
   };
 
-  const toggle = (id: string) => {
-    if (id === "vacation") {
-      setEarliestVacationEnd(new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
-    }
-    setOpen((prev) => (prev === id ? null : id));
-  };
+  const toggle = (id: string) => setOpen((prev) => (prev === id ? null : id));
   const subcategoryCount = taxonomy.reduce((n, g) => n + g.subcategories.length, 0);
 
   return (
@@ -149,33 +147,48 @@ export default function SettingsPage() {
 
           {onVacation && settings?.vacationUntil ? (
             <>
-              <p className="mb-4 rounded-[12px] bg-[var(--success-soft)] px-4 py-3 text-[17px] text-[var(--text)]">
+              <p className="mb-4 rounded-[12px] bg-[var(--success-soft)] px-4 py-3 text-[17px] leading-relaxed text-[var(--text)]">
                 Paused until{" "}
-                {new Date(settings.vacationUntil).toLocaleDateString(undefined, {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-                .
+                <strong>
+                  {new Date(settings.vacationUntil).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </strong>
+                . We will not contact you before then, and the time you are away is added back
+                when you return.
               </p>
-              <Button variant="secondary" disabled={saving} onClick={() => patch({ vacationUntil: null })}>
-                End vacation mode now
+              <Button
+                size="lg"
+                disabled={saving}
+                onClick={() => patch({ vacationDays: null })}
+              >
+                I&apos;m back — resume now
               </Button>
             </>
           ) : (
-            <div className="space-y-3">
-              <label htmlFor="vacation-until" className="block text-[15px] font-semibold text-[var(--action)]">
-                Pause until
-              </label>
-              <input
-                id="vacation-until"
-                type="date"
-                min={earliestVacationEnd}
-                onChange={(e) => e.target.value && patch({ vacationUntil: e.target.value })}
-                disabled={saving}
-                className="min-h-[56px] w-full rounded-[12px] border border-[var(--border-strong)] px-4 text-[18px] outline-none focus:border-[var(--action)]"
-              />
-            </div>
+            <>
+              <p className="mb-3 text-[15px] font-semibold text-[var(--action)]">
+                How long will you be away?
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {vacationPresets.map((preset) => (
+                  <Button
+                    key={preset.days}
+                    variant="secondary"
+                    disabled={saving}
+                    onClick={() => patch({ vacationDays: preset.days })}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-4 text-[16px] leading-relaxed text-[var(--text-faint)]">
+                Six months is the longest pause at one time. You can pause again as soon as you
+                are back, as often as you need.
+              </p>
+            </>
           )}
         </Accordion>
 

@@ -2,11 +2,15 @@ import { Given, When, Then } from "@cucumber/cucumber";
 import assert from "assert";
 import { webcrypto } from "node:crypto";
 
-if (!globalThis.crypto) {
-  (globalThis as any).crypto = webcrypto;
+// Node exposes WebCrypto under a different name, and the crypto helpers
+// expect a browser-shaped global. Narrowing the cast keeps this honest
+// without reaching for `any`.
+const globals = globalThis as unknown as { crypto?: Crypto; window?: unknown };
+if (!globals.crypto) {
+  globals.crypto = webcrypto as unknown as Crypto;
 }
-if (!globalThis.window) {
-  (globalThis as any).window = globalThis;
+if (!globals.window) {
+  globals.window = globalThis;
 }
 
 import { deriveMasterKey } from "../../lib/crypto/argon2";
@@ -20,7 +24,7 @@ let fileSize = 0;
 let fileBuffer: ArrayBuffer | null = null;
 let ciphertextHex = "";
 let ivHex = "";
-let unpackedResult: any;
+let unpackedResult: Awaited<ReturnType<typeof decryptAndUnpackSecretPayload>>;
 
 Given("secret title {string}", function (inputTitle: string) {
   title = inputTitle;

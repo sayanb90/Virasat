@@ -51,7 +51,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-white">
-      <AppHeader onOpenMenu={() => setMenuOpen(true)} alertCount={1} />
+      {/* No real alert source is wired yet, so the honest count is zero. The
+          header reads "All well" until something actually needs attention —
+          a permanent unexplained badge is the kind of low-grade alarm this
+          product exists to avoid. */}
+      <AppHeader onOpenMenu={() => setMenuOpen(true)} alertCount={0} />
       <DrawerNav open={menuOpen} onClose={() => setMenuOpen(false)} />
       <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-4">{children}</main>
     </div>

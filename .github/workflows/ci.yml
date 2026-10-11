@@ -38,3 +38,22 @@ jobs:
         with:
           name: cucumber-report
           path: cucumber-report.html
+
+      # Browsers are not on the runner image, and only Chromium is needed.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Runs against the production build above, not the dev server, so the
+      # specs exercise what actually ships.
+      - name: Execute End-to-End Flow Tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

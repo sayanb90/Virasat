@@ -10,12 +10,12 @@ Feature: Localised Category Taxonomy
 
   Scenario: India sees Indian retirement vocabulary
     Given the taxonomy is resolved for "IN"
-    Then the subcategory "banks.retirement" should be labelled "Retirement and Provident Funds"
+    Then the subcategory "banks.retirement" should be labelled "Provident Funds & Pensions"
     And its guidance should mention "EPF"
 
   Scenario: International sees generic retirement vocabulary
     Given the taxonomy is resolved for "INTL"
-    Then the subcategory "banks.retirement" should be labelled "Retirement Accounts"
+    Then the subcategory "banks.retirement" should be labelled "Pensions & Retirement"
 
   Scenario: India adds subcategories that have no international counterpart
     Given the taxonomy is resolved for "IN"

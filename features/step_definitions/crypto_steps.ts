@@ -3,15 +3,19 @@ import assert from "assert";
 import { webcrypto } from "node:crypto";
 
 // Polyfill WebCrypto for Node environment during Cucumber execution
-if (!globalThis.crypto) {
-  (globalThis as any).crypto = webcrypto;
+// Node exposes WebCrypto under a different name, and the crypto helpers
+// expect a browser-shaped global. Narrowing the cast keeps this honest
+// without reaching for `any`.
+const globals = globalThis as unknown as { crypto?: Crypto; window?: unknown };
+if (!globals.crypto) {
+  globals.crypto = webcrypto as unknown as Crypto;
 }
-if (!globalThis.window) {
-  (globalThis as any).window = globalThis;
+if (!globals.window) {
+  globals.window = globalThis;
 }
 
 import { deriveMasterKey, bufferToHex, hexToBuffer, generateSalt } from "../../lib/crypto/argon2";
-import { encryptPayload, decryptPayloadToString, generateChestKey, exportKeyToHex } from "../../lib/crypto/aes-gcm";
+import { encryptPayload, decryptPayloadToString, generateChestKey, exportKeyToHex, importKeyFromHex } from "../../lib/crypto/aes-gcm";
 import { generateBeneficiaryKeyPair, encryptChestKeyForBeneficiary, decryptChestKeyWithBeneficiaryPrivateKey } from "../../lib/crypto/asymmetric";
 
 let passphrase = "";
@@ -21,7 +25,7 @@ let ciphertextHex = "";
 let ivHex = "";
 let decryptedText = "";
 
-let benKeyPair: any;
+let benKeyPair: Awaited<ReturnType<typeof generateBeneficiaryKeyPair>>;
 let chestKeyHex = "";
 let encryptedEnvelopeHex = "";
 let decryptedChestKeyHex = "";
@@ -92,4 +96,69 @@ Then("the resulting envelope string E_ben\\(K_chest) should be produced", functi
 Then("only the beneficiary's RSA private key should be able to decrypt K_chest", async function () {
   decryptedChestKeyHex = await decryptChestKeyWithBeneficiaryPrivateKey(encryptedEnvelopeHex, benKeyPair.privateKey);
   assert.strictEqual(decryptedChestKeyHex, chestKeyHex);
+});
+
+/* --- Key material must never reach the console ------------------------- */
+
+let recordedConsole: string[] = [];
+let realConsoleLog: typeof console.log | null = null;
+let recordedMasterKeyHex = "";
+let recordedChestKeyHex = "";
+
+Given("the console is being recorded", function () {
+  recordedConsole = [];
+  realConsoleLog = console.log;
+  console.log = (...args: unknown[]) => {
+    recordedConsole.push(args.map((a) => String(a)).join(" "));
+  };
+});
+
+When("a chest key is generated, exported and re-imported", async function () {
+  recordedChestKeyHex = await exportKeyToHex(await generateChestKey());
+  await importKeyFromHex(recordedChestKeyHex);
+  // Capture K_master's hex via a fresh derivation with the same inputs, so
+  // the assertions below have the exact string to search the log for.
+  recordedMasterKeyHex = (await deriveMasterKey(passphrase, saltHex)).keyRawHex;
+  if (realConsoleLog) {
+    console.log = realConsoleLog;
+    realConsoleLog = null;
+  }
+});
+
+function assertNotLogged(needle: string, label: string): void {
+  assert.ok(needle.length > 0, `${label} was empty, so this assertion proves nothing.`);
+  // If the logger were a no-op here (NODE_ENV=production in CI, say) every
+  // assertion below would pass without testing anything. Fail loudly instead.
+  assert.ok(
+    recordedConsole.length > 0,
+    "Nothing was captured from the console, so this scenario cannot prove that " +
+      "key material is kept out of it. Check that cryptoLog is active."
+  );
+  const hit = recordedConsole.find((line) => line.includes(needle));
+  assert.strictEqual(hit, undefined, `${label} was written to the console: ${hit}`);
+}
+
+/**
+ * A prefix is as damaging as the whole string, so check the shortest slice an
+ * attacker could still use: 8 hex characters (4 bytes) of key material.
+ */
+function assertNoPrefixLogged(secretHex: string, label: string): void {
+  assertNotLogged(secretHex, label);
+  assertNotLogged(secretHex.slice(0, 8), `${label} (first 4 bytes)`);
+}
+
+Then("the console output should not contain the salt", function () {
+  assertNoPrefixLogged(saltHex, "The salt");
+});
+
+Then("the console output should not contain the master key", function () {
+  assertNoPrefixLogged(recordedMasterKeyHex, "K_master");
+});
+
+Then("the console output should not contain the passphrase", function () {
+  assertNotLogged(passphrase, "The passphrase");
+});
+
+Then("the console output should not contain any chest key material", function () {
+  assertNoPrefixLogged(recordedChestKeyHex, "A chest key");
 });

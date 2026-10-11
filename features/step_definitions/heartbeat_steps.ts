@@ -1,9 +1,13 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import assert from "assert";
-import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "../../lib/state/heartbeatMachine";
+import {
+  getPhaseFromElapsedDays,
+  generateNotificationsForElapsedDays,
+  type PhaseInfo,
+} from "../../lib/state/heartbeatMachine";
 
 let elapsedDays = 0;
-let phaseInfo: any;
+let phaseInfo: PhaseInfo;
 let notificationCount = 0;
 
 Given("the heartbeat timer starts at Day 0", function () {
@@ -44,4 +48,31 @@ Then("the elapsed days timer should reset to {int}", function (expectedDays: num
 
 Then("the escalation state machine should return to {string}", function (expectedPhaseName: string) {
   assert.strictEqual(phaseInfo.name, expectedPhaseName);
+});
+
+/* --- Cycle-aware escalation ------------------------------------------- */
+
+let cycleDays = 365;
+let notifications: ReturnType<typeof generateNotificationsForElapsedDays> = [];
+
+Given("the user's check-in cycle is {int} days", function (days: number) {
+  cycleDays = days;
+});
+
+When("simulated time advances to day {int} on that cycle", function (day: number) {
+  elapsedDays = day;
+  phaseInfo = getPhaseFromElapsedDays(elapsedDays, cycleDays);
+  notifications = generateNotificationsForElapsedDays(elapsedDays, cycleDays);
+  notificationCount = notifications.length;
+});
+
+Then("no alert should be dated beyond the end of the cycle", function () {
+  const overdue = notifications.filter((n) => n.sentAtSimulatedDay > cycleDays);
+  assert.strictEqual(
+    overdue.length,
+    0,
+    `${overdue.length} alert(s) scheduled past day ${cycleDays}: ${overdue
+      .map((n) => n.sentAtSimulatedDay)
+      .join(", ")}`
+  );
 });

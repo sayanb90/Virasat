@@ -4,8 +4,6 @@ import { NAV_ITEMS } from "../../lib/nav";
 
 let drawerOpen = false;
 let visibleLabels: string[] = [];
-let isAuthModalOpen = false;
-let selectedAuthProvider = "";
 
 Given("a user on the Virasat notes screen", function () {
   drawerOpen = false;
@@ -41,25 +39,3 @@ Then(
     }
   }
 );
-
-Given("an unauthenticated or switching user", function () {
-  isAuthModalOpen = false;
-});
-
-When("the auth modal is presented", function () {
-  isAuthModalOpen = true;
-});
-
-Then("options for {string}, {string}, and {string} should be active", function (
-  opt1: string,
-  opt2: string,
-  opt3: string
-) {
-  assert.strictEqual(isAuthModalOpen, true);
-  assert.ok(opt1 && opt2 && opt3);
-});
-
-Then("selecting Google sign-in should authenticate the session cleanly", function () {
-  selectedAuthProvider = "Google";
-  assert.strictEqual(selectedAuthProvider, "Google");
-});

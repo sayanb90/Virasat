@@ -53,7 +53,7 @@ export function UnlockScreen() {
           disabled={busy}
         >
           <Fingerprint className="h-6 w-6" aria-hidden="true" />
-          Unlock with Touch ID or Face ID
+          Use Touch ID or Face ID
         </Button>
 
         <div className="flex items-center gap-3 py-1">
