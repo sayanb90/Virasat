@@ -7,7 +7,6 @@ import { useLocale } from "@/lib/locale/LocaleProvider";
 import { useVaultSession } from "@/lib/vault/VaultSession";
 import { UnlockScreen } from "@/components/UnlockScreen";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
-import { Eyebrow } from "@/components/ui/Page";
 import type { VaultItemRecord } from "@/lib/state/mockDatabase";
 
 export default function CategoriesPage() {
@@ -46,9 +45,7 @@ export default function CategoriesPage() {
     setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
-    <div className="pb-10">
-      <Eyebrow>Categories</Eyebrow>
-
+    <div className="pb-10 pt-2">
       <ul className="divide-y divide-[var(--border)]">
         {taxonomy.map((group) => {
           const open = openGroups[group.id] ?? false;

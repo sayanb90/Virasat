@@ -21,7 +21,7 @@ test.describe("Country and vocabulary", () => {
     await gotoUnlocked(page, "/notes");
     await page.getByRole("button", { name: NOMINEE_NOTE.groupPattern }).click();
     await expect(
-      page.getByRole("link", { name: "Retirement and Provident Funds", exact: true })
+      page.getByRole("link", { name: "Provident Funds & Pensions", exact: true })
     ).toBeVisible();
     await expect(page.getByText(/EPF \(and your UAN\), PPF, NPS/)).toBeVisible();
 
@@ -30,10 +30,10 @@ test.describe("Country and vocabulary", () => {
     await gotoUnlocked(page, "/notes");
     await page.getByRole("button", { name: NOMINEE_NOTE.groupPattern }).click();
     await expect(
-      page.getByRole("link", { name: "Retirement Accounts", exact: true })
+      page.getByRole("link", { name: "Pensions & Retirement", exact: true })
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Retirement and Provident Funds", exact: true })
+      page.getByRole("link", { name: "Provident Funds & Pensions", exact: true })
     ).toBeHidden();
   });
 

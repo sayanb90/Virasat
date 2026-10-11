@@ -4,7 +4,7 @@ import type { LocalePack } from "../types";
  * India pack.
  *
  * Same tree, Indian vocabulary. Where the international wording would leave
- * a user guessing ("Retirement Accounts"), this names the instruments they
+ * a user guessing ("Pensions & Retirement"), this names the instruments they
  * actually hold (EPF, PPF, NPS). Two additions have no international
  * counterpart but matter enormously here: nominee records and bank lockers.
  */
@@ -14,17 +14,17 @@ export const IN_PACK: LocalePack = {
 
   subcategories: {
     "insurance.life": {
-      label: "Life Insurance Policies",
+      label: "Life Cover",
       helper:
         "Your life cover — LIC, term plans, ULIPs or endowment policies. Include the policy numbers, the insurer, and your agent's details",
     },
     "insurance.health": {
-      label: "Health Insurance and Mediclaim",
+      label: "Health Cover & Mediclaim",
       helper:
         "Mediclaim, family floater or critical illness cover, including CGHS or ESI, the insurer, and your TPA or card details",
     },
     "insurance.motor": {
-      label: "Motor Insurance",
+      label: "Vehicle Cover",
       helper: "Cover for your car, scooter or other vehicles, and the names of the insurers",
     },
 
@@ -34,32 +34,32 @@ export const IN_PACK: LocalePack = {
         "Your savings and current accounts — the bank, branch, account type and IFSC, and the mobile number linked to each",
     },
     "banks.brokerage": {
-      label: "Demat, Mutual Fund and Broking Accounts",
+      label: "Demat, Mutual Funds & Broking",
       helper:
         "Demat accounts (NSDL or CDSL DP ID and client ID), mutual fund folios, SIPs, and the names of your brokers or platforms",
     },
     "banks.retirement": {
-      label: "Retirement and Provident Funds",
+      label: "Provident Funds & Pensions",
       helper:
         "EPF (and your UAN), PPF, NPS (and your PRAN), gratuity, superannuation and the Senior Citizens Savings Scheme",
     },
     "banks.cards": {
-      label: "Credit Cards",
+      label: "Credit & Debit Cards",
       helper: "Your credit cards and the banks that issued them",
     },
 
     "assets.realestate": {
-      label: "Property and Land",
+      label: "Property & Land",
       helper:
         "Where the sale deed, mutation records, khata or patta, encumbrance certificate, society share certificate and property tax receipts are kept",
     },
     "assets.vehicles": {
-      label: "Vehicles",
+      label: "Cars & Vehicles",
       helper:
         "Where the RC, insurance, PUC certificate, loan NOC and service records are kept for each vehicle",
     },
     "assets.valuables": {
-      label: "Gold, Jewellery and Valuables",
+      label: "Gold & Jewellery",
       helper:
         "Gold and silver, jewellery, heirlooms and artwork — what there is, where it is kept, and any valuation or purchase bills",
     },
@@ -70,19 +70,19 @@ export const IN_PACK: LocalePack = {
     },
 
     "liabilities.tax": {
-      label: "Tax, Court or Administrative Obligations",
+      label: "Tax & Legal Dues",
       helper:
         "Income tax matters (ITR filings, assessment or demand notices), property tax, GST, and any court or legal proceedings",
     },
 
     "family.ids": {
-      label: "Identity and Travel Documents",
+      label: "Aadhaar, PAN & Travel Papers",
       helper:
         "Where your Aadhaar, PAN, Voter ID, passport, driving licence, ration card and any OCI or PIO documents are kept",
     },
 
     "digital.services": {
-      label: "Other Digital Services",
+      label: "Subscriptions & Services",
       helper:
         "UPI and payment apps, DigiLocker, cloud storage, and any software or streaming subscriptions",
     },

@@ -96,11 +96,18 @@ export function escapeRe(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * The first group on the category list, as the DOM holds it (CSS uppercases
+ * it on screen). Several specs use it to say "we are looking at the
+ * categories", so a rename lands here rather than in three places.
+ */
+export const FIRST_GROUP_LABEL = "Insurance & Cover";
+
 /** Convenience: a nominee note, used by several specs. */
 export const NOMINEE_NOTE: NewNote = {
   subcategoryId: "banks.nominees",
   subcategoryLabel: "Nominee Details",
-  groupPattern: /banks and financial/i,
+  groupPattern: /banking & accounts/i,
   title: "SBI nomination",
   body: "Nominee is Meera. Signed form DA-1 kept in the almirah.",
 };

@@ -1,11 +1,5 @@
 import { test, expect } from "@playwright/test";
-import {
-  NOMINEE_NOTE,
-  createNote,
-  gotoUnlocked,
-  resetServer,
-  seedOnboarded,
-} from "./support/app";
+import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, seedOnboarded } from "./support/app";
 
 test.describe("Notes", () => {
   test.beforeEach(async ({ page, request }) => {
@@ -16,19 +10,19 @@ test.describe("Notes", () => {
   test("notes are locked until the passphrase is given", async ({ page }) => {
     await page.goto("/notes");
     await expect(page.getByRole("heading", { name: /Welcome back/i })).toBeVisible();
-    await expect(page.getByText("INSURANCE POLICIES")).toBeHidden();
+    await expect(page.getByText(FIRST_GROUP_LABEL)).toBeHidden();
 
     await page.getByRole("button", { name: /Open my notes/i }).click();
-    await expect(page.getByText("INSURANCE POLICIES")).toBeVisible();
+    await expect(page.getByText(FIRST_GROUP_LABEL)).toBeVisible();
   });
 
   test("the India pack's vocabulary is what a user actually sees", async ({ page }) => {
     await gotoUnlocked(page, "/notes");
-    await page.getByRole("button", { name: /banks and financial/i }).click();
+    await page.getByRole("button", { name: /banking & accounts/i }).click();
 
     await expect(page.getByRole("link", { name: "Nominee Details", exact: true })).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Retirement and Provident Funds", exact: true })
+      page.getByRole("link", { name: "Provident Funds & Pensions", exact: true })
     ).toBeVisible();
     await expect(page.getByText(/EPF \(and your UAN\), PPF, NPS/)).toBeVisible();
   });

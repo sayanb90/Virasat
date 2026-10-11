@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { NOMINEE_NOTE, createNote, resetServer, seedOnboarded } from "./support/app";
+import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, resetServer, seedOnboarded } from "./support/app";
 
 const SECRET_BODY = "Nominee is Meera. Signed form DA-1 kept in the almirah.";
 const WRONG_PASSPHRASE = "not-the-right-passphrase";
@@ -27,7 +27,7 @@ test.describe("Passphrase boundary", () => {
     await theirPage.goto("/notes");
     await theirPage.getByLabel("Your passphrase").fill(WRONG_PASSPHRASE);
     await theirPage.getByRole("button", { name: "Open my notes" }).click();
-    await expect(theirPage.getByText("INSURANCE POLICIES")).toBeVisible();
+    await expect(theirPage.getByText(FIRST_GROUP_LABEL)).toBeVisible();
 
     // Deriving a key from the wrong passphrase cannot fail — it just produces
     // the wrong key — so the boundary that matters is what stays unreadable.
@@ -57,7 +57,7 @@ test.describe("Passphrase boundary", () => {
 
     await page.goto("/notes");
     await expect(page.getByRole("heading", { name: /Welcome back/i })).toBeVisible();
-    await expect(page.getByText("INSURANCE POLICIES")).toBeHidden();
+    await expect(page.getByText(FIRST_GROUP_LABEL)).toBeHidden();
   });
 
   // KNOWN GAP — a real confidentiality defect, not a flaky test.

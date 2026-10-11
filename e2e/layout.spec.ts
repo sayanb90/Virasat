@@ -9,7 +9,7 @@ import { resetServer, seedOnboarded, unlockIfNeeded } from "./support/app";
  *
  * Only elements the Button component renders are checked — they carry
  * data-ui="button". Full-width navigation rows legitimately run to two lines
- * ("Digital Identity and Communication") and are not buttons.
+ * when a name is long, and are not buttons.
  */
 const ROUTES = [
   "/notes",

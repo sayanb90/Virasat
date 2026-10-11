@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { gotoUnlocked, navigateViaMenu, resetServer, seedOnboarded, unlockIfNeeded } from "./support/app";
 
 const DESTINATIONS = [
-  { label: "My notes", url: /\/notes$/, heading: /Categories/ },
+  { label: "My notes", url: /\/notes$/, heading: /Insurance & Cover/ },
   { label: "Safety check-in", url: /\/heartbeat$/, heading: /Are you well\?/ },
   { label: "Trusted Friends", url: /\/trusted-friends$/, heading: /Trusted Friends/ },
   { label: "Beneficiary", url: /\/beneficiaries$/, heading: /Who receives your notes/ },
