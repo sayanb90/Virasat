@@ -41,6 +41,7 @@ export function Button({
   return (
     <button
       type={type}
+      data-ui="button"
       className={twMerge(clsx(BASE, VARIANTS[variant], SIZES[size], className))}
       {...props}
     />
@@ -64,6 +65,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
+      data-ui="button"
       className={twMerge(clsx(BASE, VARIANTS[variant], SIZES[size], className))}
       {...props}
     >
