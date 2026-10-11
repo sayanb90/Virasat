@@ -339,13 +339,17 @@ server ignores it entirely.
 And today the server **also holds every Beneficiary's private key**, so
 "two people must agree" would be a promise the code cannot keep.
 
-The three open defects on PR #3 are therefore prerequisites, not
-housekeeping:
+Three defects on `main` are therefore prerequisites, not housekeeping.
+They shipped with #3 — pinned, not fixed — and two of them are held open by
+`test.fixme` specs that will pass the moment the underlying issue is solved:
 
 1. The chest key encrypts nothing, so a Beneficiary cannot read what is
-   released to them.
-2. Note titles are stored in plaintext.
+   released to them. *(`e2e/handover.spec.ts`)*
+2. Note titles are stored in plaintext. *(`e2e/security.spec.ts`)*
 3. The server stores Beneficiary private keys.
+
+All three change the stored payload format, so they are one piece of work
+rather than three.
 
 **The two-party model is the reason to fix these properly rather than
 minimally** — it tells us what the crypto has to support.
