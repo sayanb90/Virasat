@@ -206,6 +206,8 @@ feature can be switched off per account.
   `/inherited` for what has been left to them. Neither is trapped by onboarding.
 - **🛡️ Security log** — an append-only record of cryptographic operations, folded
   under Settings rather than sitting in the main navigation.
+- **💳 Billing** — provider-agnostic (stub or Razorpay), webhook-driven, with
+  signature verification and replay suppression. See [Billing](#-billing).
 - **📧 Email** — provider-agnostic delivery (console, Resend or SendGrid) for
   invitations, the check-in ladder and the release notice, sent at most once
   each and never carrying key material. See [Email](#-email).
@@ -231,6 +233,8 @@ feature can be switched off per account.
 | `/claim`, `/inherited` | Beneficiary-side release and inheritance |
 | `/help` | Plain-language help (linked from Settings and `/inherited`) |
 | `GET /api/email` | Email configuration and the send ledger |
+| `GET /api/billing` | Billing configuration and the webhook ledger |
+| `POST /api/billing/webhook` | Signature-verified provider events |
 
 ---
 
@@ -323,6 +327,87 @@ release, and a spec asserts nothing is sent while paused.
 
 ---
 
+## 💳 Billing
+
+Provider-agnostic, the same shape as the email module: the app asks for a
+checkout or a subscription, a driver talks to whoever moves the money.
+Drivers: `stub` (the default) and `razorpay`. The Razorpay driver is plain
+REST over `fetch`, so **no new dependencies**.
+
+**Nothing here reads a price or a plan.** Tiers are a product decision that
+has not been made, and guessing one in code would make it the default by
+accident. `lib/billing/` moves money; it does not decide how much.
+
+### The two rules
+
+> **Entitlement is decided by webhooks, never by the browser.** A client
+> saying "payment succeeded" is a claim. Only a signature-verified webhook is
+> a fact.
+
+> **No card data ever reaches this app.** We hold provider identifiers and
+> nothing else. The vault's zero-knowledge posture must not acquire a billing
+> hole.
+
+### Webhook verification
+
+Razorpay signs HMAC-SHA256 over the **raw** request body, keyed with the
+dashboard webhook secret (*not* the API key secret), hex, in
+`X-Razorpay-Signature`.
+
+Two things that are easy to get wrong and expensive to debug:
+
+- The route reads `await req.text()`. Parsing and re-serialising JSON
+  produces different bytes from what the provider signed, so the signature
+  would never verify. This is the single most common way webhook
+  verification silently breaks.
+- Comparison is **timing-safe**. A plain `===` on a digest leaks, through
+  response timing, how many leading bytes a guess got right.
+
+A failure we could not process returns **5xx so the provider retries**. Only
+a bad signature is 401, because retrying that is pointless.
+
+The check is pinned by a **precomputed vector** in
+`features/09_billing_webhooks.feature` — deriving the expected digest with
+the same call the implementation uses would make the test circular, passing
+even if the algorithm were wrong so long as it were consistently wrong.
+Verified by sabotage: switching the HMAC to SHA-1 fails the scenario.
+
+### Applied at most once
+
+Providers retry. The same `subscription.charged` arriving twice must not
+extend a subscription twice. Every event is recorded by its provider event
+id in `lib/billing/ledger.ts` and replays are refused — but a *rejected*
+event does not close the id, so a genuine retry after a transient fault is
+still processed.
+
+### Configuration
+
+| Variable | Meaning |
+| :--- | :--- |
+| `BILLING_DRIVER` | `stub` *(default)* or `razorpay` |
+| `RAZORPAY_KEY_ID` | Public — the browser checkout needs it |
+| `RAZORPAY_KEY_SECRET` | Server only |
+| `RAZORPAY_WEBHOOK_SECRET` | Set separately in the dashboard; differs between test and live |
+
+`GET /api/billing` reports configuration shape and the ledger — whether
+credentials are present, never what they are.
+
+### Known limits
+
+- **`lib/billing/` does not apply events to accounts yet.** What a payment or
+  a lapse means depends on liveness as well as billing, and that model is
+  still being settled in `docs/release-and-entitlement.md`.
+- **The ledger is in-memory**, like the rest of this build's state. It must
+  move to the database with everything else: a restart mid-retry would
+  double-apply whatever arrives next.
+- **The Razorpay driver has never run against Razorpay.** The container's
+  network policy blocks `api.razorpay.com`, so request and response shapes
+  come from documentation rather than from a live call. Everything offline —
+  signature verification, idempotency, configuration — is tested; everything
+  on the wire is not.
+
+---
+
 ## 🗂️ Category taxonomy & locale packs
 
 The tree is deliberately split in two:
@@ -367,14 +452,14 @@ npm run test:all  # both
 Both run on every pull request (`.github/workflows/ci.yml`, no branch filter, so
 stacked PRs are gated too).
 
-**Cucumber (58 scenarios)** covers things with no UI: AES-GCM round trips and key
+**Cucumber (69 scenarios)** covers things with no UI: AES-GCM round trips and key
 derivation, the note payload codec with attachments (a real 1.4MB buffer),
 taxonomy resolution and locale packs, escalation phase maths *at every cycle
 length*, the backup format, the vacation cap and credit-back arithmetic, and a
 guard that no key, salt or passphrase material is ever written to the console or
 put into an email.
 
-**Playwright (54 scenarios)** drives a real browser at 390×844 against the
+**Playwright (58 scenarios)** drives a real browser at 390×844 against the
 **production build**, not the dev server, so the specs exercise what ships:
 
 | Spec | Covers |
@@ -390,6 +475,7 @@ put into an email.
 | `attachments` | a file survives save and reopen, never reaches the server in the clear, and can be removed without losing the note |
 | `localisation` | switching country re-labels the tree, hides market-specific sections, and **never makes a note unreachable** |
 | `email` | the invitation really is sent, the ladder goes out **once** however often the safety screen is read, a paused account is not chased, and no API key is ever served |
+| `billing` | an unsigned or tampered webhook changes nothing, a genuine one is accepted **once**, and no credential is ever served |
 
 ### Shared state between specs
 
