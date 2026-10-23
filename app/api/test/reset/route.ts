@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/state/mockDatabase";
 import { resetOutbox } from "@/lib/email";
+import { resetLedger } from "@/lib/billing";
 
 /**
  * Resets the in-memory store so end-to-end specs do not leak state into one
@@ -22,6 +23,7 @@ export async function POST() {
   }
   db.resetForTesting();
   resetOutbox();
+  resetLedger();
   return NextResponse.json({ success: true });
 }
 
