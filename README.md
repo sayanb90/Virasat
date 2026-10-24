@@ -570,12 +570,13 @@ the API host serves, and that every screen survives a reload in the shell.
 Facebook tokens and every refusal; `14_hardening.feature` the per-network
 limits, a lost phone, changing the password, the move to Argon2id and alerts.
 
-**Playwright (87 tests, 2 skipped on purpose)** drives a real browser at 390×844 against the
+**Playwright (89 tests, 2 skipped on purpose)** drives a real browser at 390×844 against the
 **production build**, not the dev server, so the specs exercise what ships:
 
 | Spec | Covers |
 | :--- | :--- |
 | `auth` | no route answers without a session, a password alone cannot reach the notes, a new phone needs an emailed code, Face ID and PIN unlock, five wrong PINs lock, Google sign-up still asks for a password, both forgotten-password paths, the Owner's stop link, the Recovery Kit reminder |
+| `hardening` | this phone listed and unable to remove itself; changing the password needs the current one, and only the new one signs in afterwards |
 | `onboarding` | the welcome gate, sign-up, and that an invited Trusted Friend or a Beneficiary is never trapped by it |
 | `notes` | unlock, India vocabulary, write → save → decrypt, edit-in-place without duplicating, delete, recipient chooser |
 | `trusted-friends` | invite → accept in a second browser context → turns green, duplicate refusal, disable |
