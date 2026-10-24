@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { setUpThisPhone } from "@/lib/auth/client";
+import { useBiometrics as usePhoneBiometrics } from "@/lib/device/useBiometrics";
 import { DigitsField, ErrorText, Heading, messageOf } from "./Fields";
 
 /** Weak PINs a stranger would try first. */
@@ -15,6 +16,7 @@ const OBVIOUS = new Set(["000000", "111111", "123456", "654321", "121212", "1122
  * sensor, and the PIN is what still works.
  */
 export function SetUpPhone({ onDone }: { onDone?: () => void }) {
+  const biometrics = usePhoneBiometrics();
   const [useBiometrics, setUseBiometrics] = useState(true);
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -35,7 +37,7 @@ export function SetUpPhone({ onDone }: { onDone?: () => void }) {
     setBusy(true);
     setError("");
     try {
-      await setUpThisPhone({ pin, useBiometrics });
+      await setUpThisPhone({ pin, useBiometrics: useBiometrics && biometrics.available });
       onDone?.();
     } catch (err) {
       setError(messageOf(err));
@@ -52,21 +54,23 @@ export function SetUpPhone({ onDone }: { onDone?: () => void }) {
       />
 
       <div className="space-y-6">
-        <label className="flex cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--border-strong)] p-4">
-          <input
-            type="checkbox"
-            checked={useBiometrics}
-            onChange={(e) => setUseBiometrics(e.target.checked)}
-            className="mt-1 h-6 w-6 shrink-0 accent-[var(--action)]"
-          />
-          <span className="text-[17px] leading-relaxed text-[var(--text)]">
-            <Fingerprint className="mr-1 inline h-5 w-5 align-[-3px] text-[var(--action)]" aria-hidden="true" />
-            <strong>Use Face ID</strong>
-            <span className="block text-[15px] text-[var(--text-muted)]">
-              The quickest way in. Your PIN still works if it does not.
+        {biometrics.available && (
+          <label className="flex cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--border-strong)] p-4">
+            <input
+              type="checkbox"
+              checked={useBiometrics}
+              onChange={(e) => setUseBiometrics(e.target.checked)}
+              className="mt-1 h-6 w-6 shrink-0 accent-[var(--action)]"
+            />
+            <span className="text-[17px] leading-relaxed text-[var(--text)]">
+              <Fingerprint className="mr-1 inline h-5 w-5 align-[-3px] text-[var(--action)]" aria-hidden="true" />
+              <strong>Use {biometrics.label}</strong>
+              <span className="block text-[15px] text-[var(--text-muted)]">
+                The quickest way in. Your PIN still works if it does not.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        )}
 
         <DigitsField
           id="new-pin"

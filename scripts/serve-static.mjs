@@ -12,12 +12,19 @@
 // directory is not a file, so step 1 skips it and step 2 serves the page; a
 // host that tried the directory first would 404 every dotted category id.
 //
-// Usage: node scripts/serve-static.mjs <dir> <port>
+// --capacitor mimics the native shell's own local server instead, exactly:
+// "/" or a path whose last segment has no file extension gets the ROOT
+// index.html; anything else is opened as a file or 404s. (Android
+// WebViewLocalServer.handleLocalRequest; iOS Router.route.) Use it to see
+// what a phone does when the WebView reloads a deep URL.
+//
+// Usage: node scripts/serve-static.mjs <dir> <port> [--capacitor]
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 
-const [, , dirArg = "out", portArg = "3398"] = process.argv;
+const [, , dirArg = "out", portArg = "3398", modeArg] = process.argv;
+const capacitor = modeArg === "--capacitor";
 const root = resolve(dirArg);
 const port = Number(portArg);
 
@@ -58,7 +65,12 @@ createServer(async (req, res) => {
     return;
   }
 
-  const candidates = [target, `${target}.html`, join(target, "index.html")];
+  const lastSegment = pathname.split("/").pop() ?? "";
+  const candidates = capacitor
+    ? pathname === "/" || !lastSegment.includes(".")
+      ? [join(root, "index.html")]
+      : [target]
+    : [target, `${target}.html`, join(target, "index.html")];
   for (const candidate of candidates) {
     if (await isFile(candidate)) {
       res.writeHead(200, { "Content-Type": TYPES[extname(candidate)] ?? "application/octet-stream" });
@@ -71,5 +83,5 @@ createServer(async (req, res) => {
   res.writeHead(404, { "Content-Type": TYPES[".html"] });
   res.end((await isFile(notFound)) ? await readFile(notFound) : "Not found");
 }).listen(port, "127.0.0.1", () => {
-  console.log(`static: ${root} on http://127.0.0.1:${port}`);
+  console.log(`static${capacitor ? " (capacitor rules)" : ""}: ${root} on http://127.0.0.1:${port}`);
 });

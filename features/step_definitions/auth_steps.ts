@@ -26,7 +26,11 @@ import {
   unlockWithBiometrics,
   type DeviceState,
 } from "../../lib/device/core";
+import { BiometricsChangedError, webCryptoKeyOps, type KeyOps } from "../../lib/device/keyops";
 import type { SocialProvider, WrappedKey } from "../../lib/auth/types";
+import { FakeDevicePlugin } from "../support/fake_device_plugin";
+import { createNativeBridgeWith, createNativeKeyOps } from "../../lib/device/native";
+import { derToRawEcdsaSignature } from "../../lib/device/der";
 
 /*
  * One person, up to two phones. "The same phone" is the one she signed up
@@ -57,6 +61,14 @@ let social: flows.SocialOutcome | null = null;
 let socialReplay: { provider: SocialProvider; token: string; nonce: string } | null = null;
 let pendingTicket: string | null = null;
 let recoveryToken: string | null = null;
+
+/*
+ * Whose key operations the phones use. The browser's WebCrypto by default;
+ * "the phone keeps its keys in hardware" switches to lib/device/native.ts
+ * over a fake plugin that answers in the real plugins' formats.
+ */
+let keyOps: KeyOps = webCryptoKeyOps;
+let hardware: FakeDevicePlugin | null = null;
 
 const currentPhone = () => (onNewPhone ? phoneB : phoneA);
 
@@ -96,7 +108,7 @@ function nameFor(email: string): string {
 }
 
 async function enrol(email: string, vaultKeyBytes: Uint8Array, pin = PIN): Promise<DeviceState> {
-  const prepared = await prepareEnrolment(true);
+  const prepared = await prepareEnrolment(true, keyOps);
   const enrolled = take(
     await flows.enrolDevice(session(), {
       name: onNewPhone ? "New phone" : "Phone",
@@ -112,7 +124,7 @@ async function enrol(email: string, vaultKeyBytes: Uint8Array, pin = PIN): Promi
     email,
     serverShareHex: enrolled!.serverShareHex,
     vaultKeyBytes,
-  });
+  }, keyOps);
 }
 
 async function finishSignup(signupTicket: string, email: string, password: string): Promise<void> {
@@ -173,6 +185,8 @@ Given("a fresh sign-in service", function () {
   pendingTicket = null;
   recoveryToken = null;
   serverShare = undefined;
+  keyOps = webCryptoKeyOps;
+  hardware = null;
 });
 
 Given(/^"([^"]+)" (?:signs|has signed) up on a phone with password "([^"]+)"$/, async function (email: string, password: string) {
@@ -221,10 +235,10 @@ Then("she has a refresh token", function () {
 When("she confirms with Face ID", async function () {
   const phone = currentPhone()!;
   const challenge = take(flows.deviceChallenge(session()))!.challenge;
-  const { signature, open } = await unlockWithBiometrics(phone, challenge);
+  const { signature, vaultKeyBytes } = (await unlockWithBiometrics(phone, challenge, "Open your notes", keyOps))!;
   take(flows.proveDevice(session(), { method: "biometric", signature }));
   assert.ok(last?.ok, `Face ID was refused: ${JSON.stringify(last)}`);
-  person.vaultKeyBytes = await open();
+  person.vaultKeyBytes = vaultKeyBytes;
 });
 
 When("the app answers the challenge with a key that is not this phone's", async function () {
@@ -237,7 +251,7 @@ When("the app answers the challenge with a key that is not this phone's", async 
 When("she confirms with PIN {string}", async function (pin: string) {
   const phone = currentPhone()!;
   const challenge = take(flows.deviceChallenge(session()))!.challenge;
-  const signature = await signForPin(phone, challenge);
+  const signature = await signForPin(phone, challenge, keyOps);
   const proved = take(flows.proveDevice(session(), { method: "pin", signature, pin }));
   serverShare = (proved as flows.DeviceProofResult | null)?.serverShareHex;
 });
@@ -246,7 +260,7 @@ When("she enters {int} wrong PINs", async function (n: number) {
   for (let i = 0; i < n; i++) {
     await signIn(person.email, person.password, phoneA!.deviceId);
     const challenge = take(flows.deviceChallenge(session()))!.challenge;
-    const signature = await signForPin(phoneA!, challenge);
+    const signature = await signForPin(phoneA!, challenge, keyOps);
     last = flows.proveDevice(session(), { method: "pin", signature, pin: "000000" });
     assert.ok(!last.ok);
   }
@@ -352,10 +366,10 @@ Then("the new phone can open her vault", async function () {
   await signIn(person.email, person.password, phoneB!.deviceId);
   onNewPhone = true;
   const challenge = take(flows.deviceChallenge(session()))!.challenge;
-  const { signature, open } = await unlockWithBiometrics(phoneB!, challenge);
+  const { signature, vaultKeyBytes } = (await unlockWithBiometrics(phoneB!, challenge, "Open your notes", keyOps))!;
   take(flows.proveDevice(session(), { method: "biometric", signature }));
   assert.ok(last?.ok);
-  assert.strictEqual(bufferToHex(await open()), bufferToHex(person.vaultKeyBytes));
+  assert.strictEqual(bufferToHex(vaultKeyBytes), bufferToHex(person.vaultKeyBytes));
 });
 
 /* --- Refresh ----------------------------------------------------------- */
@@ -547,4 +561,84 @@ Then("her old Recovery Kit no longer starts a recovery", async function () {
   await startKitRecovery(person.email, oldKit);
   assert.strictEqual(recoveryToken, null);
   assert.strictEqual((last as { status: number }).status, 401);
+});
+
+/* --- Hardware keys (lib/device/native.ts) ------------------------------ */
+
+let faceIdOutcome: { result: Awaited<ReturnType<typeof unlockWithBiometrics>>; error: unknown } | null = null;
+let signaturesBefore = 0;
+
+function fakeHardware(): FakeDevicePlugin {
+  assert.ok(hardware, "This scenario's phone does not keep its keys in hardware.");
+  return hardware!;
+}
+
+Given("the phone keeps its keys in hardware", function () {
+  hardware = new FakeDevicePlugin();
+  keyOps = createNativeKeyOps(hardware);
+});
+
+Then("the phone's saved state names its keys but holds none of them", function () {
+  const saved = JSON.parse(JSON.stringify(phoneA)) as DeviceState;
+  assert.deepStrictEqual(saved, phoneA, "The state should survive being stored as JSON, as the plugin stores it.");
+  const aliases = [saved.signingKey, saved.biometricSigningKey, saved.biometricWrapKey].map(
+    (k) => (k as { alias: string }).alias
+  );
+  assert.strictEqual(new Set(aliases).size, 3);
+  for (const alias of aliases) assert.ok(fakeHardware().keys.has(alias), `${alias} is not in the hardware.`);
+  assert.doesNotMatch(JSON.stringify(saved), /"d":/, "A private key component reached the saved state.");
+});
+
+When("someone adds a face to the phone", function () {
+  fakeHardware().addFace();
+});
+
+When(/^she (tries|cancels) Face ID$/, async function (how: string) {
+  if (how === "cancels") fakeHardware().cancelNextPrompt = true;
+  signaturesBefore = fakeHardware().signatures;
+  const challenge = take(flows.deviceChallenge(session()))!.challenge;
+  try {
+    faceIdOutcome = { result: await unlockWithBiometrics(currentPhone()!, challenge, "Open your notes", keyOps), error: null };
+  } catch (error) {
+    faceIdOutcome = { result: null, error };
+  }
+});
+
+Then("she is told her Face ID settings changed and to use her PIN", function () {
+  assert.ok(faceIdOutcome?.error instanceof BiometricsChangedError, `Expected BiometricsChangedError, got ${faceIdOutcome?.error}`);
+  assert.match((faceIdOutcome!.error as Error).message, /PIN/);
+});
+
+Then("the phone signed nothing", function () {
+  assert.strictEqual(faceIdOutcome?.result, null);
+  assert.strictEqual(fakeHardware().signatures, signaturesBefore);
+});
+
+Then("{int} signatures made by the hardware all verify on the server", async function (n: number) {
+  const { key, publicJwk } = await keyOps.createSigningKey("virasat.test.many", false);
+  for (let i = 0; i < n; i++) {
+    const challenge = `challenge-${i}-${randomSecretHex(4)}`;
+    const signature = await keyOps.sign(key, challenge);
+    assert.ok(flows.signatureValid(publicJwk, challenge, signature), `Signature ${i} did not verify.`);
+  }
+});
+
+Then("a signature that is not DER is refused before it reaches the server", function () {
+  assert.throws(() => derToRawEcdsaSignature(new Uint8Array(64).fill(7)), /Not a DER ECDSA signature/);
+  assert.throws(() => derToRawEcdsaSignature(new Uint8Array([0x30, 0x06, 0x02, 0x01, 0x01])), /Not a DER/);
+});
+
+When("she forgets this phone", async function () {
+  const bridge = createNativeBridgeWith(fakeHardware(), "ios");
+  await bridge.saveDevice(phoneA!);
+  await bridge.saveRefreshToken(refreshToken ?? "refresh");
+  assert.deepStrictEqual(await bridge.loadDevice(), phoneA);
+  await bridge.forgetDevice();
+});
+
+Then("the phone holds no keys of hers and no saved sign-in", async function () {
+  const bridge = createNativeBridgeWith(fakeHardware(), "ios");
+  assert.strictEqual(fakeHardware().keys.size, 0, `Left behind: ${[...fakeHardware().keys.keys()].join(", ")}`);
+  assert.strictEqual(await bridge.loadDevice(), null);
+  assert.strictEqual(await bridge.loadRefreshToken(), null);
 });

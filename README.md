@@ -241,8 +241,8 @@ feature can be switched off per account.
 | `/welcome`, `/welcome/sign-in` | Welcome, then sign up or sign in (email, or a provider) |
 | `/welcome/recover`, `/welcome/recover/cancel` | Forgotten password, and the Owner's "this is not me" link |
 | `/notes` | The category tree |
-| `/notes/[subcategoryId]` | Notes within a subcategory |
-| `/notes/[subcategoryId]/new` | Write a note |
+| `/notes/category?sub=…` | Notes within a subcategory |
+| `/notes/new?sub=…` | Write a note |
 | `/notes/view?sub=…&id=…` | Read / edit a note (the id is in the query: the app is a static export) |
 | `/beneficiaries` | Loved ones and heirs |
 | `/trusted-friends`, `/trusted-friends/accept?token=…` | Invite and accept |
@@ -289,8 +289,9 @@ are done:
   use and a new one issued.
 - **The browser build is a harness, not the product.** Device keys live in
   IndexedDB and "Face ID" is a confirm button (`lib/device/bridge.ts`); the
-  server still checks the biometric key's signature. The native app will
-  replace the bridge with Keychain / Keystore.
+  server still checks the biometric key's signature. The iOS and Android
+  apps use the Secure Enclave and Keystore instead (`lib/device/native.ts`);
+  see [The iOS and Android apps](#the-ios-and-android-apps).
 
 | Variable | Meaning |
 | :--- | :--- |
@@ -595,9 +596,13 @@ piece of work.
 
 ### Not yet built
 
-- **The native app** (Capacitor, Keychain / Keystore, real Face ID) and the
-  real **Apple, Google and Facebook** drivers — phases 2–4 of
-  `docs/authentication.md`. The browser build runs the whole flow on a harness.
+- **The native apps are built but not yet run on a device.** The iOS and
+  Android projects, the Secure Enclave / Keystore plugin and the app-switcher
+  cover are in; the Simulator and emulator checklist in
+  `docs/developmentPlan.md` is not done. Universal / app links for emails that
+  open app screens are not built.
+- The real **Apple, Google and Facebook** drivers (phase 4 of
+  `docs/authentication.md`).
 - **Handover by email** (phase 3b). Nothing delivers notes to a beneficiary
   yet; `/claim` says how it will work.
 - **The store is in-memory** (`lib/state/mockDatabase.ts`, `lib/auth/store.ts`)
@@ -729,13 +734,34 @@ npm run build:api && npm run start                                  # the API ho
   `APP_URL` to the API host so those links point there.
 - Sessions are bearer tokens, not cookies, so the cross-origin split needs no
   credentialed CORS — and a foreign site has no session to ride on.
-- Runtime values never sit in a path: the export can only contain paths known
-  at build time. Note ids and invite tokens travel in the query string
-  (`lib/routes.ts`); all 48 subcategory pages, from every locale pack, are
-  generated.
+- No app path carries a value: note ids, invite tokens and subcategory ids
+  all travel in the query string (`lib/routes.ts`). The export can only
+  contain paths known at build time, and the native shell's local server
+  reads a dotted path segment (`banks.nominees`) as a file name.
 
 For local development nothing changes: `npm run dev` serves both on one
 origin.
+
+### The iOS and Android apps
+
+`ios/` and `android/` are Capacitor 8 projects that carry the static export.
+
+```bash
+NEXT_PUBLIC_API_BASE=https://api.yourdomain.com npm run build:native   # export + cap sync
+npx cap open ios        # Xcode: run on a Simulator (Features → Face ID → Enrolled)
+npx cap open android    # Android Studio: an API 30+ emulator with a fingerprint enrolled
+```
+
+- `build:native` is the app build with `NEXT_PUBLIC_NATIVE=1`: it uses the
+  hardware device bridge (`lib/device/native.ts`) and contains no browser
+  fallback. It refuses to build without `NEXT_PUBLIC_API_BASE`.
+- The keys live in the Secure Enclave and Android Keystore, behind our own
+  plugin, `VirasatDevice`: `ios/App/App/VirasatDevicePlugin.swift` and
+  `android/app/src/main/java/com/virasat/app/VirasatDevicePlugin.java`. The
+  formats it returns, and why, are in `lib/device/native.ts`.
+- CI compiles both apps when native code changes (`.github/workflows/native.yml`).
+  What has and has not been checked on a device is in
+  [`docs/developmentPlan.md`](docs/developmentPlan.md), with the checklist.
 
 ### Device harness
 

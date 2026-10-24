@@ -6,6 +6,7 @@ import { Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ApiError, unlockWithFaceId, unlockWithPin, useAuth } from "@/lib/auth/client";
 import { deviceBridge } from "@/lib/device/bridge";
+import { useBiometrics } from "@/lib/device/useBiometrics";
 import { DigitsField, ErrorText, messageOf } from "./Fields";
 
 /**
@@ -15,6 +16,7 @@ import { DigitsField, ErrorText, messageOf } from "./Fields";
  */
 export function DeviceUnlock({ onDone }: { onDone?: () => void }) {
   const { device } = useAuth();
+  const { label } = useBiometrics();
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -63,7 +65,7 @@ export function DeviceUnlock({ onDone }: { onDone?: () => void }) {
             onClick={() => run(unlockWithFaceId)}
           >
             <Fingerprint className="h-6 w-6" aria-hidden="true" />
-            Use Face ID
+            Use {label}
           </Button>
           <div className="flex items-center gap-3 py-1">
             <span className="h-px flex-1 bg-[var(--border)]" />

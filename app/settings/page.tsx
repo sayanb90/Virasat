@@ -9,9 +9,11 @@ import { useLocale } from "@/lib/locale/LocaleProvider";
 import { useVaultSession } from "@/lib/vault/VaultSession";
 import { COUNTRY_OPTIONS, type CountryCode } from "@/lib/taxonomy";
 import type { AccountSettings } from "@/lib/state/mockDatabase";
-import { apiFetch, makeNewRecoveryKit, signOut, useAuth } from "@/lib/auth/client";
+import { apiFetch, makeNewRecoveryKit, prepareToSetUpAgain, signOut, useAuth } from "@/lib/auth/client";
 import { clearKitPending } from "@/lib/auth/kitReminder";
 import { RecoveryKit } from "@/components/auth/RecoveryKit";
+import { SetUpPhone } from "@/components/auth/SetUpPhone";
+import { useBiometrics } from "@/lib/device/useBiometrics";
 import { ErrorText, messageOf } from "@/components/auth/Fields";
 
 interface CycleOption {
@@ -38,6 +40,8 @@ export default function SettingsPage() {
   const { user, device } = useAuth();
   const [newKit, setNewKit] = useState<string | null>(null);
   const [kitError, setKitError] = useState("");
+  const biometrics = useBiometrics();
+  const [settingUpAgain, setSettingUpAgain] = useState(false);
 
   const makeKit = async () => {
     setKitError("");
@@ -256,9 +260,31 @@ export default function SettingsPage() {
           <p className="mb-4 text-[17px] leading-relaxed text-[var(--text-muted)]">
             Signed in as <strong className="text-[var(--text)]">{user?.email}</strong>.{" "}
             {device?.biometric
-              ? "This phone opens with Face ID or your PIN."
+              ? `This phone opens with ${biometrics.label} or your PIN.`
               : "This phone opens with your PIN."}
           </p>
+
+          {/* After a new face or fingerprint switched it off, or if it was
+              never turned on. Setting the phone up again also sets the PIN. */}
+          {device && !device.biometric && biometrics.available ? (
+            settingUpAgain ? (
+              <div className="mb-6 rounded-[16px] border border-[var(--border-strong)] p-4">
+                <SetUpPhone onDone={() => setSettingUpAgain(false)} />
+              </div>
+            ) : (
+              <div className="mb-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    prepareToSetUpAgain();
+                    setSettingUpAgain(true);
+                  }}
+                >
+                  Turn on {biometrics.label}
+                </Button>
+              </div>
+            )
+          ) : null}
 
           {newKit ? (
             <RecoveryKit

@@ -15,7 +15,7 @@
 
 import { apiUrl } from "@/lib/config";
 import { useSyncExternalStore } from "react";
-import { bufferToHex } from "@/lib/crypto/argon2";
+import { bufferToHex, hexToBuffer } from "@/lib/crypto/argon2";
 import { importVaultKey } from "@/lib/crypto/keys";
 import {
   buildNewAccount,
@@ -28,6 +28,7 @@ import {
 } from "@/lib/crypto/account";
 import {
   finishEnrolment,
+  keysOf,
   openPinCopy,
   prepareEnrolment,
   signForPin,
@@ -35,6 +36,7 @@ import {
   type DeviceState,
 } from "@/lib/device/core";
 import { deviceBridge } from "@/lib/device/bridge";
+import { BiometricsChangedError } from "@/lib/device/keyops";
 import { mintStubToken } from "@/lib/auth/providers/stub";
 import type { KdfParams, WrappedKey } from "@/lib/crypto/keys";
 
@@ -279,16 +281,27 @@ async function challenge(): Promise<string> {
   return (await call<{ challenge: string }>("/api/auth/device/challenge")).challenge;
 }
 
-/** Face ID / Touch ID. Resolves false if the person cancelled the prompt. */
+/**
+ * Face ID / Touch ID. Resolves false if the person cancelled the prompt.
+ *
+ * The prompt belongs to the key operation: using the biometric keys is what
+ * shows it, once, for both the signature and this phone's copy of K_vault.
+ */
 export async function unlockWithFaceId(): Promise<boolean> {
   const device = await loadDevice();
   if (!device) throw new Error("This phone is not set up yet.");
-  const ok = await deviceBridge().promptBiometrics("Open your notes");
-  if (!ok) return false;
-  const { signature, open } = await unlockWithBiometrics(device, await challenge());
+  const bridge = deviceBridge();
+  let unlocked: Awaited<ReturnType<typeof unlockWithBiometrics>>;
+  try {
+    unlocked = await unlockWithBiometrics(device, await challenge(), "Open your notes", bridge.keys);
+  } catch (err) {
+    if (err instanceof BiometricsChangedError) await dropBiometrics(device);
+    throw err;
+  }
+  if (!unlocked) return false;
+  const { signature, vaultKeyBytes: bytes } = unlocked;
   const grant = await call<Grant>("/api/auth/device/prove", { method: "biometric", signature });
   await applyGrant(grant);
-  const bytes = await open();
   if (grant.stage === "full") await openVault(bytes);
   else {
     pendingVaultBytes = bytes;
@@ -297,10 +310,29 @@ export async function unlockWithFaceId(): Promise<boolean> {
   return true;
 }
 
+/**
+ * A face or fingerprint was added since Face ID was set up, and the OS has
+ * destroyed the biometric keys. Forget them here too, so the unlock screen
+ * offers the PIN alone until the person turns Face ID on again.
+ */
+async function dropBiometrics(device: DeviceState): Promise<void> {
+  const bridge = deviceBridge();
+  const stale = keysOf(device).filter((key) => key !== device.signingKey);
+  const next: DeviceState = { ...device, biometricSigningKey: null, biometricWrapKey: null, biometricCopy: null };
+  await bridge.saveDevice(next);
+  deviceCache = next;
+  set({ device: { biometric: false, email: next.email } });
+  await bridge.keys.discard(stale).catch(() => {});
+}
+
+function capitalise(label: string): string {
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export async function unlockWithPin(pin: string): Promise<void> {
   const device = await loadDevice();
   if (!device) throw new Error("This phone is not set up yet.");
-  const signature = await signForPin(device, await challenge());
+  const signature = await signForPin(device, await challenge(), deviceBridge().keys);
   const result = await call<Grant & { serverShareHex: string }>("/api/auth/device/prove", {
     method: "pin",
     signature,
@@ -333,14 +365,15 @@ export async function resendCode(): Promise<void> {
 export async function setUpThisPhone(args: { pin: string; useBiometrics: boolean }): Promise<void> {
   if (!pendingVaultBytes) throw new Error("Please sign in again.");
   const bridge = deviceBridge();
-  const withBiometrics = args.useBiometrics && (await bridge.biometricsAvailable());
-  if (withBiometrics && !(await bridge.promptBiometrics("Turn on Face ID for Virasat"))) {
-    throw new Error("Face ID was not turned on. You can use your PIN instead.");
+  const biometrics = await bridge.biometrics();
+  const withBiometrics = args.useBiometrics && biometrics.available;
+  if (withBiometrics && !(await bridge.promptBiometrics(`Turn on ${biometrics.label} for Virasat`))) {
+    throw new Error(`${capitalise(biometrics.label)} was not turned on. You can use your PIN instead.`);
   }
   const previous = await loadDevice();
-  const prepared = await prepareEnrolment(withBiometrics);
+  const prepared = await prepareEnrolment(withBiometrics, bridge.keys);
   const result = await call<Grant & { serverShareHex: string }>("/api/auth/device/enrol", {
-    name: bridge.defaultDeviceName(),
+    name: await bridge.defaultDeviceName(),
     platform: bridge.platform,
     signingPublicKey: prepared.signingPublicKey,
     biometricPublicKey: prepared.biometricPublicKey,
@@ -353,11 +386,24 @@ export async function setUpThisPhone(args: { pin: string; useBiometrics: boolean
     email: state.user?.email ?? "",
     serverShareHex: result.serverShareHex,
     vaultKeyBytes: pendingVaultBytes,
-  });
+  }, bridge.keys);
   await bridge.saveDevice(device);
   deviceCache = device;
+  // The enrolment this one replaces made its own hardware keys. They open
+  // nothing now (the server has dropped that device), so delete them.
+  if (previous) await bridge.keys.discard(keysOf(previous)).catch(() => {});
   set({ device: { biometric: !!device.biometricCopy, email: device.email } });
   await openVault(pendingVaultBytes);
+}
+
+/**
+ * Sets up this phone again from an open vault: to turn Face ID back on after
+ * a new face or fingerprint switched it off, or to change the PIN. The
+ * caller then shows SetUpPhone, which finishes through setUpThisPhone.
+ */
+export function prepareToSetUpAgain(): void {
+  if (state.status !== "unlocked" || !state.vaultKeyHex) throw new Error("Please unlock Virasat first.");
+  pendingVaultBytes = hexToBuffer(state.vaultKeyHex);
 }
 
 /* ---------------------------------------------------------------------- */

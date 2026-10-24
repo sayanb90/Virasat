@@ -3,13 +3,15 @@
  *
  * One interface, two implementations:
  *
- * - **Native (phase 3, not built yet):** Keychain on iOS and Keystore on
- *   Android, with Face ID / Touch ID as the OS's own gate on the biometric
- *   keys (docs/authentication.md §4).
+ * - **Native (./native.ts):** the Secure Enclave and Keychain on iOS, Keystore
+ *   on Android, with Face ID / Touch ID / fingerprint as the OS's own gate on
+ *   the biometric keys (docs/authentication.md §4). The build that ships in
+ *   the app (`NEXT_PUBLIC_NATIVE=1`) uses only this, and the browser harness
+ *   below is compiled out of it.
  * - **Browser harness (this file):** IndexedDB, and a stand-in for the Face ID
  *   prompt. It exists so `next dev`, Playwright and Simulation Lab can run
- *   the whole flow. The shipped app replaces it entirely; nothing here is a
- *   security boundary, because a browser has no secure enclave.
+ *   the whole flow. Nothing here is a security boundary, because a browser
+ *   has no secure enclave.
  *
  * CryptoKeys are stored as CryptoKey objects. IndexedDB can hold them without
  * ever exporting the private halves, which is the nearest a browser gets to
@@ -17,15 +19,27 @@
  */
 
 import type { DeviceState } from "./core";
+import { createWebCryptoKeyOps, type KeyOps } from "./keyops";
+import { createNativeBridge } from "./native";
+
+export interface Biometrics {
+  /** Whether this phone has Face ID / Touch ID / a fingerprint set up at all. */
+  available: boolean;
+  /** What to call it on screen: "Face ID", "Touch ID", "fingerprint". */
+  label: string;
+}
 
 export interface DeviceBridge {
   /** Short name for logs and the Settings screen. */
   readonly platform: "ios" | "android" | "browser";
-  /** Whether this phone can do Face ID / Touch ID at all. */
-  biometricsAvailable(): Promise<boolean>;
-  /** What to call it on screen: "Face ID", "Touch ID", "fingerprint". */
-  biometricLabel(): string;
-  /** Asks the person to look at the phone. Resolves false if they cancel. */
+  /** What signs, wraps and unlocks with this phone's keys. */
+  readonly keys: KeyOps;
+  biometrics(): Promise<Biometrics>;
+  /**
+   * Asks the person to look at the phone, outside any key operation. Used
+   * once, when turning Face ID on, so the person sees it work (and iOS asks
+   * its permission) before the app relies on it. Resolves false on cancel.
+   */
   promptBiometrics(reason: string): Promise<boolean>;
   loadDevice(): Promise<DeviceState | null>;
   saveDevice(state: DeviceState): Promise<void>;
@@ -35,7 +49,7 @@ export interface DeviceBridge {
   /** A pending Recovery Kit recovery survives closing the app for 72 hours. */
   loadRecoveryToken(): Promise<string | null>;
   saveRecoveryToken(token: string | null): Promise<void>;
-  defaultDeviceName(): string;
+  defaultDeviceName(): Promise<string>;
 }
 
 const DB_NAME = "virasat-device";
@@ -82,15 +96,13 @@ async function idbPut(key: string, value: unknown): Promise<void> {
 function createBrowserBridge(): DeviceBridge {
   return {
     platform: "browser",
-    async biometricsAvailable() {
-      return true;
-    },
-    biometricLabel() {
-      return "Face ID";
-    },
     // The browser harness has no sensor. The unlock screen labels this as
     // simulated, and the server still requires the biometric key's
     // signature, so the flow is the real one end to end.
+    keys: createWebCryptoKeyOps(async () => true),
+    async biometrics() {
+      return { available: true, label: "Face ID" };
+    },
     async promptBiometrics() {
       return true;
     },
@@ -104,7 +116,7 @@ function createBrowserBridge(): DeviceBridge {
     saveRefreshToken: (token) => idbPut("refresh", token),
     loadRecoveryToken: () => idbGet<string>("recovery"),
     saveRecoveryToken: (token) => idbPut("recovery", token),
-    defaultDeviceName() {
+    async defaultDeviceName() {
       return "This browser";
     },
   };
@@ -113,6 +125,12 @@ function createBrowserBridge(): DeviceBridge {
 let bridge: DeviceBridge | null = null;
 
 export function deviceBridge(): DeviceBridge {
-  if (!bridge) bridge = createBrowserBridge();
+  // The literal env read is what Next inlines (an imported constant is not),
+  // so the branch not taken, and the bridge it builds, leave the bundle. The
+  // native build has no IndexedDB fallback to fall into: if the plugin is
+  // missing, createNativeBridge throws.
+  if (!bridge) {
+    bridge = process.env.NEXT_PUBLIC_NATIVE === "1" ? createNativeBridge() : createBrowserBridge();
+  }
   return bridge;
 }

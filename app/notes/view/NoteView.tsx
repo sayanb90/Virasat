@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { categoryHref, newNoteHref } from "@/lib/routes";
 import { Calendar, Paperclip, Trash2, UserRound } from "lucide-react";
 import { useLocale } from "@/lib/locale/LocaleProvider";
 import { describeSubcategory, locateSubcategory } from "@/lib/taxonomy";
@@ -94,7 +95,7 @@ export default function NoteView() {
 
     try {
       await deleteNote(note.id);
-      router.replace(`/notes/${subcategoryId}`);
+      router.replace(categoryHref(subcategoryId));
     } catch (err) {
       console.error("Delete failed:", err);
       setError("We could not delete this note. Please try again.");
@@ -204,7 +205,7 @@ export default function NoteView() {
       </div>
 
       <BottomBar>
-        <ButtonLink href={`/notes/${subcategoryId}/new`} variant="quiet" className="flex-1">
+        <ButtonLink href={newNoteHref(subcategoryId)} variant="quiet" className="flex-1">
           New note
         </ButtonLink>
         <Button onClick={() => setEditing(true)} className="flex-1">

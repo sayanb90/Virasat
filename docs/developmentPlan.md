@@ -122,10 +122,12 @@ not built).
   - `api`: the same app as the API host. `proxy.ts` answers CORS and 404s the
     app's screens.
 - **The four dynamic routes** are static now:
-  - `notes/[subcategoryId]` and its `new` page: `generateStaticParams` in the
-    segment's layout, over every subcategory in **every** locale pack (48), so
-    a note filed under an India-only id stays reachable after a country
-    switch.
+  - A subcategory is `/notes/category?sub=…` and its new-note page
+    `/notes/new?sub=…`. Subcategory ids are known at build time, but they
+    contain dots (`banks.nominees`), and the native shell's local server
+    reads a dotted last segment as a file name, so a reload there would find
+    nothing. Every app path is extensionless. (A first cut used
+    `generateStaticParams`; phase 3 replaced it.)
   - A note is `/notes/view?sub=…&id=…`. `sub` is carried as well as `id`
     because the breadcrumb is drawn before the note loads.
   - An invitation is `/trusted-friends/accept?token=…`.
@@ -148,6 +150,97 @@ not built).
   whole Playwright suite against the static export on one origin and the API
   on another (`scripts/serve-static.mjs`, no new dependency). CI now runs this
   topology. Both topologies pass: 84 passed, 2 skipped on purpose.
+
+### On `authenticationEntitlements`: phase 3, the native shell (built, not yet run on a phone)
+
+- **iOS and Android projects** (`ios/`, `android/`), Capacitor 8, from
+  `capacitor.config.ts`. `NEXT_PUBLIC_API_BASE=https://api… npm run
+  build:native` exports the app with `NEXT_PUBLIC_NATIVE=1` and copies it into
+  both. The build refuses to run without an API base. App id
+  `com.virasat.app`: **confirm it before the first store upload**, as it can
+  never change after.
+- **Every app path is extensionless.** Capacitor's local server serves the
+  root `index.html` for any path whose last segment has no dot, and treats a
+  dotted one as a file. Subcategory ids have dots (`banks.nominees`), so a
+  reload on `/notes/banks.nominees` would have been a blank screen. A
+  subcategory is now `/notes/category?sub=…` and a new note
+  `/notes/new?sub=…`, alongside `/notes/view?sub=…&id=…`.
+- **Full reloads go to the root.** Any full load in the shell is served the
+  root page whatever the URL (iOS reloads the web view after reclaiming its
+  memory), and hydrating it under another URL is a React mismatch. The native
+  build's root layout bounces to `/` before React starts. The vault key was
+  lost with that memory anyway, so the next screen is unlock either way.
+  Checked under Capacitor's exact rules (`node scripts/serve-static.mjs out
+  <port> --capacitor`): every deep reload lands on unlock, with no errors.
+- **Key operations moved behind `KeyOps`** (`lib/device/keyops.ts`). On a
+  phone the private keys never reach JavaScript, so it cannot sign or unwrap;
+  it can only ask. `core.ts` takes the `KeyOps` to use and defaults to the
+  browser's, so the existing specs run the same functions.
+- **One prompt per unlock, owned by the key.** Face ID is no longer a
+  separate call before the crypto: using the biometric keys is what shows it,
+  once, for both the server's challenge and this phone's copy of `K_vault`.
+- **`VirasatDevice`, our own plugin**, with `lib/device/native.ts` as its
+  JavaScript side (formats documented there):
+  - **iOS** (`ios/App/App/VirasatDevicePlugin.swift`): three Secure Enclave
+    P-256 keys. Signing has no gate; the biometric signing key and the wrap
+    key use `.biometryCurrentSet`. K_vault is wrapped with ECIES to the wrap
+    key's public half, so enrolment needs no second prompt. One `LAContext`
+    is evaluated and handed to both key lookups. Storage is Keychain items,
+    `WhenUnlockedThisDeviceOnly`; this plan said `WhenPasscodeSet…`, but that
+    would stop a phone without a passcode from saving anything, including
+    for the PIN, so it was not used. The first launch after an install clears
+    the previous install's Keychain items, which iOS keeps across uninstalls.
+  - **Android** (`…/VirasatDevicePlugin.java`, Java to match the generated
+    project): Keystore keys, StrongBox when the phone has it. The biometric
+    keys are `AUTH_BIOMETRIC_STRONG` and time-bound (10 s) rather than bound
+    to a `CryptoObject`, because a prompt carries only one `CryptoObject` and
+    unlocking needs two keys. The wrap key is RSA-OAEP, so wrapping needs no
+    prompt. Biometrics need Android 11; older phones use the PIN. Stored
+    values are AES-GCM encrypted under a Keystore key. Backup and
+    device-to-device transfer are off.
+  - **A new face or fingerprint invalidates the biometric keys.** The plugin
+    reports `BIOMETRICS_CHANGED`; the app forgets Face ID on this phone,
+    explains, and offers the PIN. *Settings → Signing in → Turn on Face ID*
+    sets the phone up again from the open vault (also new: before this, a
+    phone set up without Face ID could never turn it on).
+  - Re-enrolling deletes the previous enrolment's hardware keys.
+- **App-switcher snapshot hidden**: a cover view on iOS
+  (`VirasatBridgeViewController.swift`), `FLAG_SECURE` on Android (this also
+  blocks screenshots).
+- **The browser bridge is not in the native bundle**, checked by building
+  both and searching the output. The native bundle has no IndexedDB fallback.
+- The unlock and set-up screens say "Touch ID", "fingerprint" and so on, as
+  the phone reports. Prose elsewhere still says "Face ID".
+
+**What is verified, and what is not.** This was built where neither Xcode nor
+the Android SDK can run.
+
+| Check | Status |
+| :--- | :--- |
+| `lib/device/native.ts` against a fake plugin with the real formats (DER signatures, X9.63 points, opaque wrap blobs): enrolment, Face ID, PIN, a new face, cancelling, forgetting the phone, 300 signatures through the server's own check | Cucumber, `features/11_hardware_device_keys.feature` |
+| The Java plugin compiles against the Android 15 framework (androidx and Capacitor stubbed) | Done once by hand, `javac` |
+| The Java plugin's point encoding and DER signatures verify through `native.ts` and the server's check; its OAEP parameters round-trip | Done once by hand on a JVM (40 keys) |
+| Both apps compile against the real SDKs | CI, `.github/workflows/native.yml`, on the first push |
+| The Swift plugin | **Not compiled here.** CI's iOS job is its first compile. |
+| Anything on a phone or emulator | **Not done.** The checklist below. |
+| The browser harness still runs every flow | Playwright, both topologies: 85 passed, 2 skipped. Cucumber: 102 scenarios. |
+
+**Device checklist** (the phase's "done when"). In the iOS Simulator, set
+*Features → Face ID → Enrolled*; in the Android emulator (API 30+), enrol a
+fingerprint in Settings and use *Extended controls → Fingerprint*.
+
+1. Sign up. Face ID is offered; the system asks permission once (iOS).
+2. Close and reopen the app: one prompt unlocks it. Cancel: the PIN works.
+3. Wrong face or finger, then cancel: nothing is signed, the PIN works.
+4. Add a face or fingerprint in Settings. Reopen: a clear message, PIN only,
+   no Face ID button. Turning Face ID on again works.
+5. Recovery path A (this phone) and path B (Recovery Kit, 72-hour hold, the
+   veto link) both complete.
+6. The app switcher shows the cover (iOS), a blank card (Android).
+7. iOS: in Xcode, *Debug → Simulate memory warning*, or kill the web content
+   process; the app returns to unlock without a blank screen.
+8. Uninstall and reinstall: the app starts signed out.
+9. Android: `adb backup` / a device transfer carries nothing.
 
 ---
 
@@ -174,27 +267,18 @@ Each phase should leave both test suites green and be reviewable on its own.
 
 ### ~~Phase 2: static export and the API split~~ — done, see §1.
 
-### Phase 3: the Capacitor shell
+### Phase 3: the Capacitor shell — built, see §1. Remaining:
 
-- iOS and Android projects in the repo, built from the static export.
-- **A native device bridge** implementing `DeviceBridge`
-  (`lib/device/bridge.ts`), written as our own small plugin:
-  - iOS: Keychain items with `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`.
-    The biometric key and wrap key go in the Secure Enclave with
-    `.biometryCurrentSet`.
-  - Android: Keystore keys with `setUserAuthenticationRequired`, used through
-    `BiometricPrompt` with a `CryptoObject`, on StrongBox where available.
-  - When someone adds a new face or fingerprint, the stored key is
-    invalidated, and the app falls back to the PIN with an explanation.
-- The refresh token and recovery token go in the Keychain / Keystore, not
-  IndexedDB.
-- Hide the app's contents in the app-switcher snapshot.
-- Exclude the browser bridge from the native build.
+- **Run the device checklist** in §1 on the iOS Simulator and the Android
+  emulator, then on one real iPhone and one real Android phone. Android's
+  time-bound keys need checking in particular: that one prompt unlocks both,
+  and that a new fingerprint invalidates them.
 - **Emails that link to app screens.** The check-in ladder and other Owner
   emails link to `/heartbeat`, `/settings` and `/claim`. The API host 404s
   app screens, so those links need **universal links (iOS) and app links
   (Android)** that open the installed app, served from the API host's
   `/.well-known/`. Until then they reach a 404.
+- App icons and splash screens (the generated projects use Capacitor's).
 - **Done when:** sign-up, unlock, the PIN and both recovery paths pass in the
   iOS Simulator (*Features → Face ID*) and the Android emulator.
 

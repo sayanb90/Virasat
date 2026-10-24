@@ -673,7 +673,8 @@ export function deviceChallenge(session: SessionRecord): Outcome<{ challenge: st
   return ok({ challenge: session.challenge });
 }
 
-function signatureValid(jwk: PublicKeyJwk, challenge: string, signatureB64: unknown): boolean {
+/** Raw r‖s, base64url, over the challenge as UTF-8. Exported for the specs. */
+export function signatureValid(jwk: PublicKeyJwk, challenge: string, signatureB64: unknown): boolean {
   if (typeof signatureB64 !== "string") return false;
   try {
     return verifySignature(

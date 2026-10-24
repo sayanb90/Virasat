@@ -409,7 +409,7 @@ is mechanical. Next 16's static export does not support:
 
 | Feature | Where it is used today | Change |
 | :--- | :--- | :--- |
-| Dynamic segments without `generateStaticParams` | `notes/[subcategoryId]`, `notes/[subcategoryId]/[noteId]`, `notes/[subcategoryId]/new`, `trusted-friends/accept/[token]` | Subcategories are a fixed taxonomy → `generateStaticParams`. Note ids and invite tokens are not → move to query strings (`/notes/view?id=`). |
+| Dynamic segments without `generateStaticParams` | `notes/[subcategoryId]`, `notes/[subcategoryId]/[noteId]`, `notes/[subcategoryId]/new`, `trusted-friends/accept/[token]` | All move to query strings (`/notes/category?sub=`, `/notes/view?sub=&id=`, `/trusted-friends/accept?token=`). Subcategories are a fixed taxonomy, but their ids contain dots, which Capacitor's local server reads as file names. |
 | Server `redirect()` | `app/page.tsx` | Client-side `router.replace`. |
 | Route handlers that read the request | All of `app/api/` | They move to a **separately deployed server** (the same Next.js app built normally, serving only `/api`). |
 | `proxy.ts` | Not used yet | Do not introduce it; `requireSession` lives in the handlers. |

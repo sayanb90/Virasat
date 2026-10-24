@@ -1,5 +1,6 @@
 import { test, expect } from "./support/fixtures";
-import { NOMINEE_NOTE, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
+import { NOMINEE_NOTE, escapeRe, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
+import { newNoteHref } from "../lib/routes";
 
 /** A small PNG, enough to prove a binary survives the encryption round trip. */
 const PNG = Buffer.from(
@@ -13,7 +14,7 @@ async function openNewNoteForm(page: import("@playwright/test").Page) {
   await page
     .getByRole("link", { name: `Add a note under ${NOMINEE_NOTE.subcategoryLabel}` })
     .click();
-  await page.waitForURL(/banks\.nominees\/new/);
+  await page.waitForURL(new RegExp(escapeRe(newNoteHref(NOMINEE_NOTE.subcategoryId))));
 }
 
 test.describe("Attachments", () => {

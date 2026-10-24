@@ -1,0 +1,78 @@
+name: Native app builds
+
+# Compiles the iOS and Android shells, including the VirasatDevice plugin
+# (Swift and Java). Nothing here runs on a phone: it proves the native code
+# builds against the real SDKs. Behaviour on a device is checked by hand
+# (docs/developmentPlan.md, phase 3 checklist).
+#
+# Only when something native could have changed: macOS minutes are costly.
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - "android/**"
+      - "lib/device/**"
+      - "capacitor.config.ts"
+      - "next.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/native.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "ios/**"
+      - "android/**"
+      - "lib/device/**"
+      - "capacitor.config.ts"
+      - "next.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/native.yml"
+
+env:
+  # Baked into the bundle; the build refuses to run without one. Nothing
+  # calls it here.
+  NEXT_PUBLIC_API_BASE: https://api.virasat.invalid
+
+jobs:
+  android:
+    name: Android (debug APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Build the native web bundle and copy it into both projects
+        run: npm run build:native
+      - name: Compile the Android app
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+  ios:
+    name: iOS (Simulator build)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: npm ci
+      - name: Build the native web bundle and copy it into both projects
+        run: npm run build:native
+      - name: Compile the iOS app
+        working-directory: ios/App
+        run: >
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

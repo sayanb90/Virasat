@@ -9,6 +9,7 @@ import { UnlockScreen } from "@/components/UnlockScreen";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import type { VaultItemRecord } from "@/lib/state/mockDatabase";
 import { apiFetch } from "@/lib/auth/client";
+import { categoryHref, newNoteHref } from "@/lib/routes";
 import { useKitPending } from "@/lib/auth/kitReminder";
 
 export default function CategoriesPage() {
@@ -107,7 +108,7 @@ export default function CategoriesPage() {
                         <div className="flex items-start gap-3">
                           <div className="min-w-0 flex-1">
                             <Link
-                              href={`/notes/${sub.id}`}
+                              href={categoryHref(sub.id)}
                               className="text-[19px] font-medium leading-snug text-[var(--action)] hover:underline"
                             >
                               {sub.label}
@@ -123,7 +124,7 @@ export default function CategoriesPage() {
                           </div>
 
                           <Link
-                            href={`/notes/${sub.id}/new`}
+                            href={newNoteHref(sub.id)}
                             aria-label={`Add a note under ${sub.label}`}
                             className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-[var(--action-border)] bg-white text-[var(--action)] transition-colors hover:bg-[var(--action-soft)]"
                           >

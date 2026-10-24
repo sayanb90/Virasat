@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { buildNewAccount, buildRecoveryKit, loginProof } from "../../lib/crypto/account";
+import { newNoteHref } from "../../lib/routes";
 
 /**
  * Where /api lives. In the split topology that is not the page's origin, so
@@ -57,7 +58,11 @@ export async function lastCode(request: APIRequestContext, email: string): Promi
  * and PIN, Recovery Kit. Ends unlocked on My notes, with this browser
  * context enrolled as the account's phone.
  */
-export async function signUp(page: Page, owner: Owner = OWNER): Promise<{ recoveryCode: string }> {
+export async function signUp(
+  page: Page,
+  owner: Owner = OWNER,
+  options: { faceId?: boolean } = {}
+): Promise<{ recoveryCode: string }> {
   await page.goto("/welcome");
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -75,6 +80,7 @@ export async function signUp(page: Page, owner: Owner = OWNER): Promise<{ recove
   await page.getByLabel("Type the password again").fill(owner.password);
   await page.getByRole("button", { name: "Create my account" }).click();
 
+  if (options.faceId === false) await page.getByRole("checkbox", { name: /Use Face ID/ }).uncheck();
   await page.getByLabel("Choose a PIN of six numbers").fill(owner.pin);
   await page.getByLabel("Type the PIN again").fill(owner.pin);
   await page.getByRole("button", { name: "Lock with this PIN" }).click();
@@ -211,7 +217,7 @@ export async function createNote(page: Page, note: NewNote): Promise<string> {
   await page
     .getByRole("link", { name: `Add a note under ${note.subcategoryLabel}` })
     .click();
-  await page.waitForURL(new RegExp(`${escapeRe(note.subcategoryId)}/new`));
+  await page.waitForURL(new RegExp(escapeRe(newNoteHref(note.subcategoryId))));
 
   await page.getByLabel("Title").fill(note.title);
   await page.getByLabel("Add note").fill(note.body);

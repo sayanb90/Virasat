@@ -23,8 +23,8 @@ const ROUTES = [
   "/audit",
   "/claim",
   "/help",
-  "/notes/banks.nominees",
-  "/notes/banks.nominees/new",
+  "/notes/category?sub=banks.nominees",
+  "/notes/new?sub=banks.nominees",
 ];
 
 /**

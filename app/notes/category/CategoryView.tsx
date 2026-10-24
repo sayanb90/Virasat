@@ -1,7 +1,8 @@
 "use client";
 
-import { noteHref } from "@/lib/routes";
-import React, { use, useEffect, useState } from "react";
+import { newNoteHref, noteHref } from "@/lib/routes";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useLocale } from "@/lib/locale/LocaleProvider";
@@ -15,12 +16,8 @@ import type { VaultItemRecord } from "@/lib/state/mockDatabase";
 
 const ALL = "__all__";
 
-export default function SubcategoryNotesPage({
-  params,
-}: {
-  params: Promise<{ subcategoryId: string }>;
-}) {
-  const { subcategoryId } = use(params);
+export default function CategoryView() {
+  const subcategoryId = useSearchParams().get("sub") ?? "";
   const { country, taxonomy, ready } = useLocale();
   const { vaultKey } = useVaultSession();
 
@@ -155,7 +152,7 @@ export default function SubcategoryNotesPage({
           title="Nothing here yet"
           body={sub.helper}
           action={
-            <ButtonLink href={`/notes/${sub.id}/new`} size="lg">
+            <ButtonLink href={newNoteHref(sub.id)} size="lg">
               Add your first note
             </ButtonLink>
           }
@@ -187,7 +184,7 @@ export default function SubcategoryNotesPage({
 
       {/* Floating add button, matching the reference app's anchored FAB. */}
       <Link
-        href={`/notes/${sub.id}/new`}
+        href={newNoteHref(sub.id)}
         aria-label={`Add a note under ${sub.label}`}
         className="fixed bottom-[max(28px,calc(env(safe-area-inset-bottom)+12px))] left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[20px] bg-[var(--action)] text-white shadow-lg transition-colors hover:bg-[var(--action-hover)]"
       >

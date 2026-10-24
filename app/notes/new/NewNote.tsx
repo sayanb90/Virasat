@@ -1,8 +1,8 @@
 "use client";
 
 import { noteHref } from "@/lib/routes";
-import React, { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale } from "@/lib/locale/LocaleProvider";
 import { locateSubcategory } from "@/lib/taxonomy";
 import { useVaultSession } from "@/lib/vault/VaultSession";
@@ -13,12 +13,8 @@ import { ButtonLink } from "@/components/ui/Button";
 import { fetchBeneficiaries } from "@/lib/vault/notes";
 import type { BeneficiaryRecord } from "@/lib/state/mockDatabase";
 
-export default function NewNotePage({
-  params,
-}: {
-  params: Promise<{ subcategoryId: string }>;
-}) {
-  const { subcategoryId } = use(params);
+export default function NewNote() {
+  const subcategoryId = useSearchParams().get("sub") ?? "";
   const router = useRouter();
   const { taxonomy, ready } = useLocale();
   const { vaultKey } = useVaultSession();

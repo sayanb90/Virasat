@@ -8,6 +8,7 @@ import {
   createNote,
   gotoUnlocked,
   lastCode,
+  navigateViaMenu,
   resetServer,
   signUp,
   signUpViaApi,
@@ -126,6 +127,30 @@ test.describe("Signing in", () => {
     await signInWithPassword(phone, "not-the-right-password");
     await expect(phone.getByText(/That email and password do not match/)).toBeVisible();
     await phone.context().close();
+  });
+
+  test("Face ID can be turned on later from Settings", async ({ page }) => {
+    // Also the way back after a new face or fingerprint switches it off on
+    // a phone: the app says to turn it on again in Settings.
+    await signUp(page, OWNER, { faceId: false });
+    await page.reload();
+    await expect(page.getByLabel("Your PIN")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Use Face ID" })).toHaveCount(0);
+    await page.getByLabel("Your PIN").fill(OWNER.pin);
+    await page.getByRole("button", { name: "Open with PIN" }).click();
+
+    await navigateViaMenu(page, "Settings", /\/settings$/);
+    await page.getByRole("button", { name: /Signing in/ }).click();
+    await expect(page.getByText("This phone opens with your PIN.")).toBeVisible();
+    await page.getByRole("button", { name: "Turn on Face ID" }).click();
+    await page.getByLabel("Choose a PIN of six numbers").fill(OWNER.pin);
+    await page.getByLabel("Type the PIN again").fill(OWNER.pin);
+    await page.getByRole("button", { name: "Lock with this PIN" }).click();
+    await expect(page.getByText("This phone opens with Face ID or your PIN.")).toBeVisible();
+
+    await page.reload();
+    await page.getByRole("button", { name: "Use Face ID" }).click();
+    await expect(page.getByRole("button", { name: "Use Face ID" })).toBeHidden({ timeout: 15_000 });
   });
 
   test("the PIN opens the app, and five wrong PINs lock it", async ({ page }) => {

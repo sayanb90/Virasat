@@ -1,5 +1,6 @@
 import { test, expect } from "./support/fixtures";
-import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
+import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, escapeRe, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
+import { categoryHref } from "../lib/routes";
 
 test.describe("Notes", () => {
   test.beforeEach(async ({ page, request }) => {
@@ -46,7 +47,7 @@ test.describe("Notes", () => {
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("heading", { name: "SBI nomination (joint)" })).toBeVisible();
 
-    await gotoUnlocked(page, `/notes/${NOMINEE_NOTE.subcategoryId}`);
+    await gotoUnlocked(page, categoryHref(NOMINEE_NOTE.subcategoryId));
     const cards = page.locator(`li a[href*="/notes/view?sub=${NOMINEE_NOTE.subcategoryId}&id=note-"]`);
     await expect(cards).toHaveCount(1);
   });
@@ -57,7 +58,7 @@ test.describe("Notes", () => {
     page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: /Delete this note/i }).click();
 
-    await page.waitForURL(new RegExp(`/notes/${NOMINEE_NOTE.subcategoryId}$`));
+    await page.waitForURL(new RegExp(`${escapeRe(categoryHref(NOMINEE_NOTE.subcategoryId))}$`));
     await expect(page.getByText("Nothing here yet")).toBeVisible();
   });
 

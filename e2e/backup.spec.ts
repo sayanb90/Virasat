@@ -1,5 +1,6 @@
 import { test, expect } from "./support/fixtures";
 import { readFileSync } from "node:fs";
+import { categoryHref } from "../lib/routes";
 import {
   NOMINEE_NOTE,
   createNote,
@@ -54,7 +55,7 @@ test.describe("Backup", () => {
     await expect(page.getByText(/Restored 1 of 1/)).toBeVisible();
 
     // The decisive check: restored ciphertext still opens with the same vault key.
-    await gotoUnlocked(page, `/notes/${NOMINEE_NOTE.subcategoryId}`);
+    await gotoUnlocked(page, categoryHref(NOMINEE_NOTE.subcategoryId));
     await page.getByRole("link", { name: new RegExp(NOMINEE_NOTE.title) }).click();
     await expect(page.getByText(/Nominee is Meera/)).toBeVisible();
   });

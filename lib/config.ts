@@ -30,3 +30,10 @@ export function publicWebUrl(path: string): string {
   const base = API_BASE || (typeof window !== "undefined" ? window.location.origin : "");
   return `${base}${path}`;
 }
+
+/**
+ * The build that ships inside the iOS and Android shells (`npm run
+ * build:native`). It uses the hardware-backed device bridge and never falls
+ * back to the browser harness. Inlined at build time, like the API base.
+ */
+export const IS_NATIVE_BUILD = process.env.NEXT_PUBLIC_NATIVE === "1";
