@@ -14,8 +14,8 @@ const STEPS = [
     body: "This decides which categories and examples Virasat shows you. You can change it later.",
   },
   {
-    title: "Sign in without a password",
-    body: "On the next screen, enter your email. We send you a link that signs you in — there is no password to remember or lose.",
+    title: "Sign in, then unlock with your face",
+    body: "Sign in with your email, or with Apple, Google or Facebook. After that, Virasat opens with Face ID or a PIN, so nobody else can read your notes.",
   },
   {
     title: "Your notes are encrypted",

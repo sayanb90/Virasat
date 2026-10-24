@@ -19,9 +19,10 @@ import {
   recordBackup,
   subscribeHistory,
 } from "@/lib/vault/backup";
+import { apiFetch } from "@/lib/auth/client";
 
 export default function BackupPage() {
-  const { masterKey } = useVaultSession();
+  const { vaultKey } = useVaultSession();
   const history = useSyncExternalStore(
     subscribeHistory,
     getHistorySnapshot,
@@ -75,7 +76,7 @@ export default function BackupPage() {
 
       let restored = 0;
       for (const note of backup.notes) {
-        const res = await fetch("/api/vault", {
+        const res = await apiFetch("/api/vault", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(note),
@@ -100,7 +101,7 @@ export default function BackupPage() {
     }
   };
 
-  if (!masterKey) return <UnlockScreen />;
+  if (!vaultKey) return <UnlockScreen />;
 
   return (
     <div className="pb-12">

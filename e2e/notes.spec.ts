@@ -1,18 +1,19 @@
-import { test, expect } from "@playwright/test";
-import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, seedOnboarded } from "./support/app";
+import { test, expect } from "./support/fixtures";
+import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, escapeRe, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
+import { categoryHref } from "../lib/routes";
 
 test.describe("Notes", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
-  test("notes are locked until the passphrase is given", async ({ page }) => {
+  test("notes are locked until Face ID is given", async ({ page }) => {
     await page.goto("/notes");
     await expect(page.getByRole("heading", { name: /Welcome back/i })).toBeVisible();
     await expect(page.getByText(FIRST_GROUP_LABEL)).toBeHidden();
 
-    await page.getByRole("button", { name: /Open my notes/i }).click();
+    await page.getByRole("button", { name: "Use Face ID" }).click();
     await expect(page.getByText(FIRST_GROUP_LABEL)).toBeVisible();
   });
 
@@ -46,8 +47,8 @@ test.describe("Notes", () => {
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("heading", { name: "SBI nomination (joint)" })).toBeVisible();
 
-    await gotoUnlocked(page, `/notes/${NOMINEE_NOTE.subcategoryId}`);
-    const cards = page.locator(`li a[href*="/notes/${NOMINEE_NOTE.subcategoryId}/note-"]`);
+    await gotoUnlocked(page, categoryHref(NOMINEE_NOTE.subcategoryId));
+    const cards = page.locator(`li a[href*="/notes/view?sub=${NOMINEE_NOTE.subcategoryId}&id=note-"]`);
     await expect(cards).toHaveCount(1);
   });
 
@@ -57,7 +58,7 @@ test.describe("Notes", () => {
     page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: /Delete this note/i }).click();
 
-    await page.waitForURL(new RegExp(`/notes/${NOMINEE_NOTE.subcategoryId}$`));
+    await page.waitForURL(new RegExp(`${escapeRe(categoryHref(NOMINEE_NOTE.subcategoryId))}$`));
     await expect(page.getByText("Nothing here yet")).toBeVisible();
   });
 
@@ -73,9 +74,18 @@ test.describe("Notes", () => {
 
   test("with two Beneficiaries the recipient can be chosen and survives an edit", async ({
     page,
-    request,
+    api,
   }) => {
-    await request.post("/api/beneficiaries", {
+    // A new account starts with nobody; the chooser appears from two.
+    await api.post("/api/beneficiaries", {
+      data: {
+        name: "Eleanor Vance",
+        relationship: "Spouse",
+        email: "eleanor@example.com",
+        publicKeyPem: "-----BEGIN PUBLIC KEY-----\nDEMO\n-----END PUBLIC KEY-----",
+      },
+    });
+    await api.post("/api/beneficiaries", {
       data: {
         name: "Arjun Bhattacharjee",
         relationship: "Son",
@@ -97,7 +107,7 @@ test.describe("Notes", () => {
     await page.getByLabel("Title").fill("HDFC locker");
     await page.getByLabel("Add note").fill("Second key with Arjun.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
 
     await expect(page.getByText("Goes to Arjun Bhattacharjee")).toBeVisible();
 

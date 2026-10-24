@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isResponse, requireSession } from "@/lib/auth/http";
 import { billingStatus, listLedger } from "@/lib/billing";
 
 /**
@@ -7,6 +8,8 @@ import { billingStatus, listLedger } from "@/lib/billing";
  * Reports shape only: `ready` says whether credentials are present, never
  * what they are.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
   return NextResponse.json({ success: true, status: billingStatus(), ledger: listLedger() });
 }

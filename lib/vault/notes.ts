@@ -13,6 +13,7 @@ import {
   decryptAndUnpackSecretPayload,
 } from "@/lib/crypto/payloadCodec";
 import type { VaultItemRecord, BeneficiaryRecord } from "@/lib/state/mockDatabase";
+import { apiFetch } from "@/lib/auth/client";
 
 export interface NoteDraft {
   /** Present when editing; absent when creating. */
@@ -25,14 +26,14 @@ export interface NoteDraft {
 }
 
 export async function fetchNotes(): Promise<VaultItemRecord[]> {
-  const res = await fetch("/api/vault");
+  const res = await apiFetch("/api/vault");
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? "Could not load notes.");
   return data.items as VaultItemRecord[];
 }
 
 export async function fetchBeneficiaries(): Promise<BeneficiaryRecord[]> {
-  const res = await fetch("/api/beneficiaries");
+  const res = await apiFetch("/api/beneficiaries");
   const data = await res.json();
   return data.success ? (data.beneficiaries as BeneficiaryRecord[]) : [];
 }
@@ -40,9 +41,9 @@ export async function fetchBeneficiaries(): Promise<BeneficiaryRecord[]> {
 /** Decrypts a note's body. The title is stored alongside and needs no key. */
 export async function decryptNoteBody(
   item: VaultItemRecord,
-  masterKey: CryptoKey
+  vaultKey: CryptoKey
 ): Promise<{ body: string; fileName?: string; fileMimeType?: string; fileBuffer?: ArrayBuffer }> {
-  const unpacked = await decryptAndUnpackSecretPayload(item.ciphertextHex, item.ivHex, masterKey);
+  const unpacked = await decryptAndUnpackSecretPayload(item.ciphertextHex, item.ivHex, vaultKey);
   return {
     body: unpacked.textNotes ?? "",
     fileName: unpacked.fileName,
@@ -57,7 +58,7 @@ export async function decryptNoteBody(
  */
 export async function saveNote(
   draft: NoteDraft,
-  masterKey: CryptoKey,
+  vaultKey: CryptoKey,
   beneficiaries: BeneficiaryRecord[]
 ): Promise<VaultItemRecord> {
   const mimeType = draft.file?.mimeType ?? "text/plain";
@@ -68,7 +69,7 @@ export async function saveNote(
     draft.file?.buffer ?? null,
     mimeType,
     fileName,
-    masterKey
+    vaultKey
   );
 
   // Per-note chest key, sealed to the beneficiary's public key.
@@ -86,7 +87,7 @@ export async function saveNote(
     }
   }
 
-  const res = await fetch("/api/vault", {
+  const res = await apiFetch("/api/vault", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -107,6 +108,6 @@ export async function saveNote(
 }
 
 export async function deleteNote(id: string): Promise<void> {
-  const res = await fetch(`/api/vault?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/vault?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Could not delete this note.");
 }

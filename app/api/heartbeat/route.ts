@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/state/mockDatabase";
+import { isResponse, requireSession } from "@/lib/auth/http";
 import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "@/lib/state/heartbeatMachine";
 import { dispatchDueEmails } from "@/lib/email/dispatch";
 
 // GET /api/heartbeat - Current safety state, honouring the user's settings
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   // No scheduler here, so an expired hold is closed out the next time anyone
   // looks. Doing it before reading settings means the credit is already
   // applied to what we report.
@@ -24,7 +27,7 @@ export async function GET() {
   // There is no scheduler in this build, so a read is also the trigger. The
   // dispatcher is idempotent and never throws, so this cannot send twice and
   // cannot stop a user from telling us they are alive.
-  const emails = await dispatchDueEmails();
+  const emails = await dispatchDueEmails(db, { name: caller.user.name, email: caller.user.email });
 
   return NextResponse.json({
     success: true,
@@ -40,7 +43,10 @@ export async function GET() {
 }
 
 // POST /api/heartbeat - Record a check-in ("I am safe and well")
-export async function POST() {
+export async function POST(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   const previousDays = db.simulatedElapsedDays;
   const { checkInCycleDays } = db.getSettings();
 

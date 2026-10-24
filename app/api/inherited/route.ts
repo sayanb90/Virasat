@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isResponse, requireSession } from "@/lib/auth/http";
 
 /**
  * Notes left to this user by someone who named them as Beneficiary.
@@ -9,6 +10,8 @@ import { NextResponse } from "next/server";
  * state rather than a hard-coded placeholder, and so wiring a real backend
  * later changes nothing above it.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
   return NextResponse.json({ success: true, notes: [], releasesPending: 0 });
 }

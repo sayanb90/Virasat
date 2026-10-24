@@ -1,6 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 import { createHmac } from "node:crypto";
-import { resetServer } from "./support/app";
+import { resetServer, signUpViaApi } from "./support/app";
 
 /**
  * The stub driver runs under test, so no money moves and no provider is
@@ -21,10 +21,12 @@ function event(id: string) {
 test.describe("Billing webhooks", () => {
   test.beforeEach(async ({ request }) => {
     await resetServer(request);
+    // The billing status is an Owner's screen; the webhook itself is public.
+    await signUpViaApi(request);
   });
 
-  test("configuration is reported without ever exposing a credential", async ({ request }) => {
-    const res = await request.get("/api/billing");
+  test("configuration is reported without ever exposing a credential", async ({ api }) => {
+    const res = await api.get("/api/billing");
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
 
@@ -45,7 +47,7 @@ test.describe("Billing webhooks", () => {
     expect(res.status()).toBe(401);
   });
 
-  test("a tampered body is refused even with a valid-looking signature", async ({ request }) => {
+  test("a tampered body is refused even with a valid-looking signature", async ({ request, api }) => {
     const original = event("evt_tampered");
     const signature = sign(original);
 
@@ -56,12 +58,13 @@ test.describe("Billing webhooks", () => {
     });
     expect(res.status()).toBe(401);
 
-    const { ledger } = await (await request.get("/api/billing")).json();
+    const { ledger } = await (await api.get("/api/billing")).json();
     expect(ledger.filter((e: { outcome: string }) => e.outcome === "applied")).toHaveLength(0);
   });
 
   test("a genuine webhook is accepted, and a retry of it is not applied again", async ({
     request,
+    api,
   }) => {
     const body = event("evt_genuine");
     const headers = { "content-type": "application/json", "x-stub-signature": sign(body) };
@@ -75,7 +78,7 @@ test.describe("Billing webhooks", () => {
     expect(second.status()).toBe(200);
     expect((await second.json()).replayed).toBe(true);
 
-    const { ledger } = await (await request.get("/api/billing")).json();
+    const { ledger } = await (await api.get("/api/billing")).json();
     expect(ledger.filter((e: { outcome: string }) => e.outcome === "applied")).toHaveLength(1);
   });
 });

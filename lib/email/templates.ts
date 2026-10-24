@@ -24,6 +24,7 @@
  * what to do, in that order.
  */
 
+import { inviteAcceptPath } from "../routes";
 import type { EmailMessage } from "./types";
 
 export interface TemplateContext {
@@ -66,7 +67,7 @@ export function trustedFriendInvite(
   ctx: TemplateContext,
   args: { friendName: string; friendEmail: string; ownerName: string; inviteToken: string }
 ): EmailMessage {
-  const url = link(ctx, `/trusted-friends/accept/${encodeURIComponent(args.inviteToken)}`);
+  const url = link(ctx, inviteAcceptPath(args.inviteToken));
   const subject = `${args.ownerName} has asked you to be a Trusted Friend`;
 
   const paragraphs = [
@@ -207,5 +208,173 @@ export function beneficiaryRelease(
     ].join("\n"),
     html: toHtml(subject, paragraphs, { label: "Open Virasat", url }),
     idempotencyKey: `release:${args.releaseId}`,
+  };
+}
+
+/* ---------------------------------------------------------------------- */
+/* Sign-in                                                                */
+/* ---------------------------------------------------------------------- */
+
+/*
+ * A six-digit code is not key material: it proves the reader owns the inbox,
+ * is useless after ten minutes or five wrong tries, and opens nothing on its
+ * own. Every sign-in email still follows THE RULE above.
+ */
+
+export type CodeEmailPurpose = "signup" | "new-device" | "reset" | "recover";
+
+const CODE_REASON: Record<CodeEmailPurpose, { subject: string; why: string }> = {
+  signup: {
+    subject: "Your Virasat code",
+    why: "Here is the code to confirm your email address and finish setting up Virasat.",
+  },
+  "new-device": {
+    subject: "Your Virasat code for a new phone",
+    why: "Someone is signing in to your Virasat account on a phone it has not seen before. If that is you, here is the code.",
+  },
+  reset: {
+    subject: "Your Virasat code to change your password",
+    why: "Here is the code to choose a new Virasat password on your phone.",
+  },
+  recover: {
+    subject: "Your Virasat code to recover your account",
+    why: "Here is the code to start recovering your Virasat account with your Recovery Kit.",
+  },
+};
+
+export function verificationCode(
+  _ctx: TemplateContext,
+  args: { email: string; code: string; purpose: CodeEmailPurpose; sendId: string }
+): EmailMessage {
+  const { subject, why } = CODE_REASON[args.purpose];
+  const spaced = `${args.code.slice(0, 3)} ${args.code.slice(3)}`;
+  const paragraphs = [
+    `Hello,`,
+    why,
+    `<strong style="font-size:28px;letter-spacing:4px;">${spaced}</strong>`,
+    `The code works for 10 minutes. Nobody from Virasat will ever ask you for it.`,
+    `If you did not ask for this, you can ignore this email. Nothing will change.`,
+  ];
+  return {
+    to: { email: args.email },
+    subject,
+    text: [
+      `Hello,`,
+      why,
+      "",
+      `    ${spaced}`,
+      "",
+      `The code works for 10 minutes. Nobody from Virasat will ever ask you for it.`,
+      `If you did not ask for this, you can ignore this email. Nothing will change.`,
+      "",
+      SIGN_OFF,
+    ].join("\n"),
+    html: toHtml(subject, paragraphs),
+    idempotencyKey: `code:${args.purpose}:${args.sendId}`,
+  };
+}
+
+/** Sent instead of a sign-up code when the address already has an account. */
+export function alreadyRegistered(
+  ctx: TemplateContext,
+  args: { email: string; sendId: string }
+): EmailMessage {
+  const subject = "You already have a Virasat account";
+  const paragraphs = [
+    `Hello,`,
+    `Someone tried to create a new Virasat account with this email address. You already have one, so nothing new was made.`,
+    `To get back in, open Virasat and sign in. If you have forgotten your password, choose "Forgot password?" on the sign-in screen.`,
+  ];
+  return {
+    to: { email: args.email },
+    subject,
+    text: [...paragraphs, "", SIGN_OFF].join("\n"),
+    html: toHtml(subject, paragraphs),
+    idempotencyKey: `already-registered:${args.sendId}`,
+  };
+}
+
+export function newDeviceSignedIn(
+  ctx: TemplateContext,
+  args: { email: string; name: string; deviceName: string; deviceId: string }
+): EmailMessage {
+  const url = link(ctx, "/settings");
+  const subject = "A new phone signed in to Virasat";
+  const paragraphs = [
+    `Hello ${args.name},`,
+    `Your Virasat account was just set up on a new phone: <strong>${args.deviceName}</strong>.`,
+    `If that was you, there is nothing to do.`,
+    `If it was not you, open Virasat on your own phone, go to Settings, and remove it. Then change your password.`,
+  ];
+  return {
+    to: { email: args.email, name: args.name },
+    subject,
+    text: [
+      `Hello ${args.name},`,
+      `Your Virasat account was just set up on a new phone: ${args.deviceName}.`,
+      `If that was you, there is nothing to do.`,
+      `If it was not you, open Virasat on your own phone, go to Settings, and remove it. Then change your password.`,
+      "",
+      url,
+      "",
+      SIGN_OFF,
+    ].join("\n"),
+    html: toHtml(subject, paragraphs, { label: "Open Settings", url }),
+    idempotencyKey: `new-device:${args.deviceId}`,
+  };
+}
+
+export function passwordChanged(
+  _ctx: TemplateContext,
+  args: { email: string; name: string; sendId: string }
+): EmailMessage {
+  const subject = "Your Virasat password was changed";
+  const paragraphs = [
+    `Hello ${args.name},`,
+    `Your Virasat password has just been changed. Any other phone signed in to your account will be asked to sign in again.`,
+    `If you did not do this, please contact us straight away by replying to this email.`,
+  ];
+  return {
+    to: { email: args.email, name: args.name },
+    subject,
+    text: [...paragraphs, "", SIGN_OFF].join("\n"),
+    html: toHtml(subject, paragraphs),
+    idempotencyKey: `password-changed:${args.sendId}`,
+  };
+}
+
+/**
+ * The Owner's veto on a Recovery Kit recovery (docs/authentication.md 3.6).
+ * One tap cancels it. Cancelling can only ever delay a recovery, never
+ * expose anything, so the link alone is enough.
+ */
+export function recoveryStarted(
+  ctx: TemplateContext,
+  args: { email: string; name: string; releasableAt: Date; cancelToken: string; recoveryId: string }
+): EmailMessage {
+  const url = link(ctx, `/welcome/recover/cancel#${encodeURIComponent(args.cancelToken)}`);
+  const when = args.releasableAt.toUTCString().replace(/:\d\d GMT$/, " GMT");
+  const subject = "Someone is recovering your Virasat account";
+  const paragraphs = [
+    `Hello ${args.name},`,
+    `Someone has started recovering your Virasat account using your Recovery Kit. If nobody stops it, they will be able to choose a new password on <strong>${when}</strong>.`,
+    `<strong>If this is you</strong>, there is nothing to do. Please wait until then.`,
+    `<strong>If this is not you</strong>, tap the button below. It stops the recovery straight away, and nothing else changes.`,
+  ];
+  return {
+    to: { email: args.email, name: args.name },
+    subject,
+    text: [
+      `Hello ${args.name},`,
+      `Someone has started recovering your Virasat account using your Recovery Kit. If nobody stops it, they will be able to choose a new password on ${when}.`,
+      `If this is you, there is nothing to do. Please wait until then.`,
+      `If this is not you, open the link below. It stops the recovery straight away, and nothing else changes.`,
+      "",
+      url,
+      "",
+      SIGN_OFF,
+    ].join("\n"),
+    html: toHtml(subject, paragraphs, { label: "This is not me — stop it", url }),
+    idempotencyKey: `recovery-started:${args.recoveryId}`,
   };
 }
