@@ -134,3 +134,11 @@ export function deviceBridge(): DeviceBridge {
   }
   return bridge;
 }
+
+/**
+ * Runs the app's flows over another bridge: in tests, a phone's bridge over a
+ * fake plugin (tests/unit/client.test.ts). `null` goes back to the default.
+ */
+export function setDeviceBridgeForTesting(next: DeviceBridge | null): void {
+  bridge = next;
+}

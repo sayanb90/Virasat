@@ -105,8 +105,14 @@ export function createWebCryptoKeyOps(prompt: (reason: string) => Promise<boolea
         "decrypt",
       ]);
     },
-    sign: (key, challenge) => signChallenge(asCryptoKey(key), challenge),
-    wrap: (key, bytes) => wrapBytes(bytes, asCryptoKey(key)),
+    // async, so a wrong key is a rejected promise like any other failure,
+    // not a synchronous throw that skips the caller's .catch().
+    async sign(key, challenge) {
+      return signChallenge(asCryptoKey(key), challenge);
+    },
+    async wrap(key, bytes) {
+      return wrapBytes(bytes, asCryptoKey(key));
+    },
     async biometricUnlock({ signingKey, wrapKey, copy, challenge, reason }) {
       if (!(await prompt(reason))) return null;
       const signature = await signChallenge(asCryptoKey(signingKey), challenge);

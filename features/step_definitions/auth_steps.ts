@@ -20,6 +20,7 @@ import { bufferToHex } from "../../lib/crypto/argon2";
 import { generateRecoveryCode, generateSigningKey, randomSecretHex, signChallenge } from "../../lib/crypto/keys";
 import {
   finishEnrolment,
+  keysOf,
   openPinCopy,
   prepareEnrolment,
   signForPin,
@@ -641,4 +642,36 @@ Then("the phone holds no keys of hers and no saved sign-in", async function () {
   assert.strictEqual(fakeHardware().keys.size, 0, `Left behind: ${[...fakeHardware().keys.keys()].join(", ")}`);
   assert.strictEqual(await bridge.loadDevice(), null);
   assert.strictEqual(await bridge.loadRefreshToken(), null);
+});
+
+let replacedKeys: DeviceState | null = null;
+
+When("she sets up this phone again", async function () {
+  const old = phoneA!;
+  const prepared = await prepareEnrolment(true, keyOps);
+  const enrolled = take(
+    await flows.enrolDevice(session(), {
+      name: "Phone",
+      platform: "ios",
+      signingPublicKey: prepared.signingPublicKey,
+      biometricPublicKey: prepared.biometricPublicKey,
+      pin: PIN,
+      replacesDeviceId: old.deviceId,
+    })
+  );
+  assert.ok(enrolled, `Setting the phone up again failed: ${JSON.stringify(last)}`);
+  phoneA = await finishEnrolment(
+    prepared,
+    { deviceId: enrolled!.deviceId!, email: person.email, serverShareHex: enrolled!.serverShareHex, vaultKeyBytes: person.vaultKeyBytes },
+    keyOps
+  );
+  // As the app does once the new enrolment is saved (lib/auth/client.ts).
+  await keyOps.discard(keysOf(old));
+  replacedKeys = old;
+});
+
+Then("the phone holds only the new keys", function () {
+  const aliases = (s: DeviceState) => keysOf(s).map((k) => (k as { alias: string }).alias).sort();
+  assert.deepStrictEqual([...fakeHardware().keys.keys()].sort(), aliases(phoneA!));
+  assert.notDeepStrictEqual(aliases(replacedKeys!), aliases(phoneA!));
 });

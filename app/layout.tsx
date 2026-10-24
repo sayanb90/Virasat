@@ -3,6 +3,7 @@ import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { IS_NATIVE_BUILD } from "@/lib/config";
+import { NATIVE_RELOAD_TO_ROOT } from "@/lib/native/reloadToRoot";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -28,15 +29,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-/**
- * Inside the native shell, every full page load is served the root
- * index.html, whatever the URL: Capacitor's local server maps any
- * extensionless path to it. That happens when iOS reloads the web view after
- * reclaiming its memory. Hydrating the root page's HTML under another URL is
- * a mismatch, so go to the root first, before React starts. Nothing is lost:
- * the vault key lived in that memory, so the next screen is unlock either way.
- */
-const NATIVE_RELOAD_TO_ROOT = 'if(location.pathname!=="/")location.replace("/")';
+// See lib/native/reloadToRoot.ts: a deep reload in the shell gets the root page.
 
 export default function RootLayout({
   children,

@@ -7,10 +7,10 @@
 //   2. the path plus ".html"    /notes            -> notes.html
 //   3. a directory index        /                 -> index.html
 //
-// Order matters. "/notes/banks.nominees" is BOTH banks.nominees.html and a
-// directory (holding new.html and the client-navigation payloads). A
-// directory is not a file, so step 1 skips it and step 2 serves the page; a
-// host that tried the directory first would 404 every dotted category id.
+// Order matters. "/notes" is BOTH notes.html and a directory (holding
+// view.html, category.html and the client-navigation payloads). A directory
+// is not a file, so step 1 skips it and step 2 serves the page; a host that
+// tried the directory index first would 404 it.
 //
 // --capacitor mimics the native shell's own local server instead, exactly:
 // "/" or a path whose last segment has no file extension gets the ROOT
@@ -50,10 +50,10 @@ async function isFile(p) {
   }
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   let pathname;
   try {
-    pathname = decodeURIComponent(new URL(req.url ?? "/", "http://local").pathname);
+    pathname = decodeURIComponent(new URL(req.url, "http://local").pathname);
   } catch {
     res.writeHead(400).end();
     return;
@@ -65,7 +65,7 @@ createServer(async (req, res) => {
     return;
   }
 
-  const lastSegment = pathname.split("/").pop() ?? "";
+  const lastSegment = pathname.slice(pathname.lastIndexOf("/") + 1);
   const candidates = capacitor
     ? pathname === "/" || !lastSegment.includes(".")
       ? [join(root, "index.html")]
@@ -85,3 +85,11 @@ createServer(async (req, res) => {
 }).listen(port, "127.0.0.1", () => {
   console.log(`static${capacitor ? " (capacitor rules)" : ""}: ${root} on http://127.0.0.1:${port}`);
 });
+
+// Exit cleanly when Playwright (or a test) stops the server.
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+    server.closeAllConnections();
+  });
+}

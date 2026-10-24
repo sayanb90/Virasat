@@ -57,3 +57,14 @@ Feature: Keys that live in the phone's hardware
     Given "meera@example.com" has signed up on a phone with password "Mango-Tree-Rain-42"
     When she forgets this phone
     Then the phone holds no keys of hers and no saved sign-in
+
+  Scenario: After a new face, setting the phone up again brings Face ID back
+    Given "meera@example.com" has signed up on a phone with password "Mango-Tree-Rain-42"
+    When someone adds a face to the phone
+    And she signs in with password "Mango-Tree-Rain-42" on the same phone
+    And she confirms with PIN "482915"
+    And she sets up this phone again
+    Then the phone holds only the new keys
+    When she signs in with password "Mango-Tree-Rain-42" on the same phone
+    And she confirms with Face ID
+    Then her session is full

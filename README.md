@@ -501,31 +501,50 @@ exercise.
 
 ## 🧪 Tests
 
-Two suites, deliberately split by what they are good at.
+Three suites, deliberately split by what they are good at.
 
 ```bash
-npm test          # Cucumber — logic, crypto, taxonomy, escalation arithmetic
-npm run test:e2e  # Playwright — app and API on one origin (development)
-npm run test:e2e:ui  # Playwright, interactive
-npm run test:all  # both
+npm run test:unit      # node:test — module edges: formats, errors, every branch
+npm test               # Cucumber — behaviour, in the product's own words
+npm run test:coverage  # both, under coverage, with the gate for new code
+npm run test:e2e       # Playwright — app and API on one origin (development)
+npm run test:e2e:ui    # Playwright, interactive
+npm run test:all       # unit, Cucumber, Playwright
 
 npm run build:e2e-split && npm run test:e2e:split   # the shipping topology
 ```
 
-Both run on every pull request (`.github/workflows/ci.yml`, no branch filter, so
+All run on every pull request (`.github/workflows/ci.yml`, no branch filter, so
 stacked PRs are gated too). **CI runs Playwright in the split topology** — the
 static export on one origin, the API on another, exactly as the native app
 talks to it — so every PR is checked against the two artifacts that ship.
+`native.yml` also compiles the iOS and Android apps when native code changes.
 
-**Cucumber (95 scenarios)** covers things with no UI: AES-GCM round trips and key
+**Unit tests (`tests/unit`, 106 tests)** use Node's own test runner, with no
+framework. `client.test.ts` runs the app's sign-in code on a "phone": the
+native bridge over a fake plugin that answers in the real plugins' formats,
+against the real API route handlers served in-process
+(`tests/unit/harness.ts`). The rest cover the DER and point conversions, the
+CORS and API-only rules, the static server's resolution and Capacitor modes,
+the three builds, and the browser harness's storage.
+
+**Coverage.** `npm run test:coverage` writes `coverage/index.html` and fails
+if any file written in phases 2 and 3 drops below 100% of lines and
+functions or 95% of branches (`.c8-new-code.json`). Older code is reported,
+not yet gated.
+
+**Cucumber (119 scenarios)** covers things with no UI: AES-GCM round trips and key
 derivation, the note payload codec with attachments (a real 1.4MB buffer),
 taxonomy resolution and locale packs, escalation phase maths *at every cycle
 length*, the backup format, the vacation cap and credit-back arithmetic, and a
 guard that no key, salt or passphrase material is ever written to the console or
 put into an email. `10_authentication.feature` runs the sign-in, PIN, refresh,
-social and recovery rules against the real device-side crypto.
+social and recovery rules against the real device-side crypto. `11_hardware_device_keys.feature` runs the
+same flows on hardware keys: a new face, a cancelled prompt, setting the phone
+up again. `12_native_app_and_api_host.feature` covers who may call the API, what
+the API host serves, and that every screen survives a reload in the shell.
 
-**Playwright (58 scenarios)** drives a real browser at 390×844 against the
+**Playwright (87 tests, 2 skipped on purpose)** drives a real browser at 390×844 against the
 **production build**, not the dev server, so the specs exercise what ships:
 
 | Spec | Covers |
