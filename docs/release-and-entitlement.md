@@ -67,8 +67,8 @@ Three parties, with distinct jobs. One rename.
 | Role            | Job                                                        |
 | --------------- | ---------------------------------------------------------- |
 | **Owner**       | Writes the notes. Checks in. Can always veto a release.     |
-| **Beneficiary** | Receives the notes on release.                              |
-| **Witness**     | Vouches that the Owner is well; later confirms they are not. |
+| **Beneficiary** | Receives the notes on release. Any number. One of them co-confirms the death. |
+| **Witness**     | Vouches that the Owner is well; later confirms they are not. **One or two**, never more. |
 
 ### Rename: Trusted Friend → Witness
 
@@ -127,12 +127,33 @@ These are the rules worth writing tests against first:
 
 ---
 
-## 5. Release authorisation: two confirmations plus an owner veto
+## 5. Release authorisation: a Witness, a Beneficiary, and an owner veto
 
 ### The rule
 
-> Release requires **two independent confirmations** *and* **the Owner
-> failing to object during a cooling-off window**.
+> Release requires **one Witness confirmation**, **one Beneficiary
+> confirmation**, *and* **the Owner failing to object during a 14-day
+> cooling-off window**.
+
+*Revised 24 October 2026* (see `docs/authentication.md` §7). The first draft
+accepted any two confirmations, or one plus a death certificate. That is
+replaced by a single rule, with one confirmation from each side:
+
+| Confirmations received | Releases? |
+| :--- | :--- |
+| A Witness + a Beneficiary | **Yes**, after the cooling-off window |
+| Two Witnesses | No |
+| Two Beneficiaries, or any number of them | No |
+| One person alone | No |
+
+Each side covers a different weakness. A Witness is chosen as someone who
+gains nothing from the release. A Beneficiary is the person who will act when
+the time comes. Requiring one of each means neither the people who gain nor
+an outsider can start a release on their own.
+
+The rule is also enforced by cryptography, not only by our server: the
+handover code is rebuilt from a Witness piece and a Beneficiary piece, which
+are handed over only when each confirms (`docs/authentication.md` §7).
 
 Two parties who know each other could be the same family faction with the
 same incentive. Two signatures are not much harder to obtain than one. What
@@ -144,18 +165,21 @@ warning to the Owner on every channel** —
 
 A living person stops it with one tap. The attempt is logged.
 
-### Two routes to a confirmation
+### Who may be named
 
-Either is sufficient, both still require the cooling-off window:
+- **Witnesses: at least one, at most two.** The second exists only as a
+  spare, in case the first dies first or cannot be reached. Two Witnesses
+  agreeing is still not enough.
+- **Beneficiaries: any number.** Any one of them can supply the Beneficiary
+  confirmation, and every Beneficiary then receives their own notes.
 
-- **Two independent confirmations** from distinct, verified people.
-- **One confirmation plus a death certificate.** Stronger evidence, and it
-  works when only one person is reachable. In India this is a real,
-  obtainable document.
+The death-certificate route is dropped for simplicity. A certificate would
+need manual review and a way to unlock without a Witness, and that undoes
+the guarantee above.
 
 ### The failure mode this introduces
 
-Requiring two confirmations means **the vault can now fail to open** — the
+Requiring a confirmation from each side means **the vault can now fail to open** — the
 mirror image of the original problem, and just as bad. Over a twenty-year
 horizon:
 
@@ -165,13 +189,15 @@ horizon:
 
 Mitigations, in order of value:
 
-1. **Two of N, not two of exactly two.** The Owner names three or four
-   people; any two can confirm.
+1. **A spare on the Witness side.** A second Witness, so that losing one does
+   not block the release. The Beneficiary side is already resilient: any one
+   of them is enough.
 2. **Keep contacts warm.** Ping each named person annually — *"Mr Sharma has
    named you. Still the right address?"* A bounce or a long non-reply
    prompts the Owner to add someone else.
-3. **Treat a contact list that has decayed below two reachable people as a
-   product alarm**, surfaced to the Owner the way a failing backup would be.
+3. **Treat a side with no reachable person as a product alarm**: no
+   reachable Witness, or no reachable Beneficiary. Surface it to the Owner the
+   way a failing backup would be.
 
 Without (3), the product quietly stops working and nobody finds out until it
 is needed.
@@ -354,16 +380,17 @@ rather than three.
 **The two-party model is the reason to fix these properly rather than
 minimally** — it tells us what the crypto has to support.
 
-### The v2 of this: real two-party cryptography
+### Real two-party cryptography
 
-Split the chest key with **Shamir's Secret Sharing** so that any two of
-Beneficiary / Witness-1 / Witness-2 can reconstruct it, with the server
-holding no share. Two people would then genuinely be required, and a breach
-of our infrastructure would reveal nothing.
+Now specified in `docs/authentication.md` §7, as three pieces rather than
+Shamir shares. The handover code is rebuilt from a server piece, a Witness
+piece and a Beneficiary piece, so a Witness and a Beneficiary are genuinely
+both required, and a breach of our infrastructure before release reveals
+nothing. It also removes defect 3: Beneficiaries no longer need key pairs.
 
-The tradeoff is sharp: if the holders lose their shares, nobody can open the
-vault — including us. Worth doing, but after the three defects above, not
-instead of them.
+The tradeoff is unchanged: if every Witness, or every Beneficiary, loses
+their piece, nobody can open the vault — including us. The yearly "check it
+still works" in that document exists for this reason.
 
 ---
 
@@ -390,9 +417,9 @@ sight.
 2. **Annual price point.** ₹999 is assumed throughout; the Cashfree fee cliff
    at ₹1,000 argues for staying just under it.
 3. **Lifetime price in INR**, and whether it is offered in both markets.
-4. **Minimum Witnesses at setup.** Proposal: two, so "any two confirm" works
-   from day one, with the app nagging if the list drops below that.
-5. **Cooling-off window length.** Proposal: 14 days.
+4. ~~**Minimum Witnesses at setup.**~~ Settled 24 October 2026: at least one,
+   at most two. One Beneficiary is also required.
+5. ~~**Cooling-off window length.**~~ Settled 24 October 2026: 14 days.
 6. **Long-stop.** How long do we hold a `preserved` account where nobody —
    Owner, Beneficiary or Witness — ever responds? Proposal: five years, then
    a final notice blitz, then deletion. Needs to be in the terms.
