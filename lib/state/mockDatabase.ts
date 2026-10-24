@@ -78,7 +78,12 @@ export interface AuditLogRecord {
   ipAddress: string;
 }
 
-class MockZeroKnowledgeDatabase {
+/**
+ * One account's vault. Every route reaches it through `vaultFor(userId)`
+ * with the user id from the caller's session, so one account can never read
+ * another's records.
+ */
+export class MockZeroKnowledgeDatabase {
   private vaultItems: Map<string, VaultItemRecord> = new Map();
   private beneficiaries: Map<string, BeneficiaryRecord> = new Map();
   private envelopes: Map<string, BeneficiaryEnvelopeRecord> = new Map();
@@ -98,18 +103,9 @@ class MockZeroKnowledgeDatabase {
   }
 
   private seedInitialData() {
-    // Seed sample beneficiary
-    const benId = "ben-1";
-    this.beneficiaries.set(benId, {
-      id: benId,
-      name: "Eleanor Vance (Primary Heir)",
-      relationship: "Spouse & Estate Executor",
-      email: "eleanor.vance@example.com",
-      publicKeyPem: `-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuX2Z23H0h... (Demo RSA Key)\n-----END PUBLIC KEY-----`,
-      status: "Active",
-      createdAt: new Date().toISOString(),
-    });
-
+    // A new account starts empty. The demo beneficiary that used to be seeded
+    // here belonged to nobody, and with real accounts it would appear in
+    // every one of them.
     this.logAudit(
       "Database Initialized",
       "ZeroKnowledgeSync",
@@ -372,5 +368,27 @@ class MockZeroKnowledgeDatabase {
   }
 }
 
-// Global Singleton Instance for dev/demo server state
-export const db = new MockZeroKnowledgeDatabase();
+const vaults = new Map<string, MockZeroKnowledgeDatabase>();
+
+/** The vault of the signed-in user. Created on first use. */
+export function vaultFor(userId: string): MockZeroKnowledgeDatabase {
+  let vault = vaults.get(userId);
+  if (!vault) {
+    vault = new MockZeroKnowledgeDatabase();
+    vaults.set(userId, vault);
+  }
+  return vault;
+}
+
+/**
+ * Every vault, with its owner. Only for lookups that arrive without a
+ * session by design — an invitation link opened by someone who is not a
+ * Virasat user.
+ */
+export function allVaults(): Array<{ userId: string; vault: MockZeroKnowledgeDatabase }> {
+  return [...vaults.entries()].map(([userId, vault]) => ({ userId, vault }));
+}
+
+export function resetVaultsForTesting(): void {
+  vaults.clear();
+}

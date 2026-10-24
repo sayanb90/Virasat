@@ -1,10 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { db, TrustedFriendRecord } from "@/lib/state/mockDatabase";
+import { isResponse, requireSession } from "@/lib/auth/http";
+import { TrustedFriendRecord } from "@/lib/state/mockDatabase";
 import { sendEmail, templateContext } from "@/lib/email";
 import { trustedFriendInvite } from "@/lib/email/templates";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   return NextResponse.json({
     success: true,
     friends: db.getTrustedFriends(),
@@ -13,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   try {
     const body = await req.json();
     const email = String(body.email ?? "").trim();
@@ -50,7 +57,7 @@ export async function POST(req: Request) {
       trustedFriendInvite(templateContext(), {
         friendName: friend.name,
         friendEmail: friend.email,
-        ownerName: process.env.OWNER_NAME ?? "A Virasat user",
+        ownerName: caller.user.name,
         inviteToken: friend.inviteToken,
       })
     );
@@ -68,6 +75,9 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {

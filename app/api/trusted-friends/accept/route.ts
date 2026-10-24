@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/state/mockDatabase";
+import { allVaults } from "@/lib/state/mockDatabase";
 
-/** Called when an invited person opens their invite link and accepts. */
+/**
+ * Called when an invited person opens their invite link and accepts.
+ *
+ * Public by design: the person accepting is not a Virasat user. The token is
+ * 32 random bytes and is the only thing that identifies whose invitation it
+ * is, so the lookup runs across every account's vault.
+ */
 export async function POST(req: Request) {
   try {
     const { token } = await req.json();
@@ -9,7 +15,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing invite token." }, { status: 400 });
     }
 
-    const friend = db.acceptTrustedFriend(String(token));
+    let friend = null;
+    for (const { vault } of allVaults()) {
+      friend = vault.acceptTrustedFriend(String(token));
+      if (friend) break;
+    }
     if (!friend) {
       return NextResponse.json(
         { success: false, error: "That invitation link is not valid, or it has been withdrawn." },

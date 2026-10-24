@@ -22,6 +22,11 @@ Feature: Email delivery
       | urgent            |
       | critical          |
       | release           |
+      | code              |
+      | already-signed-up |
+      | new-device        |
+      | password-changed  |
+      | recovery-started  |
 
   Scenario: The release notice says plainly that the key is not enclosed
     Given an email built from the "release" template

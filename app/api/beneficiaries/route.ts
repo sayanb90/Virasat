@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { db, BeneficiaryRecord } from "@/lib/state/mockDatabase";
+import { isResponse, requireSession } from "@/lib/auth/http";
+import { BeneficiaryRecord } from "@/lib/state/mockDatabase";
 
 // GET /api/beneficiaries
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   const beneficiaries = db.getBeneficiaries();
   const envelopes = db.getEnvelopes();
 
@@ -15,6 +19,9 @@ export async function GET() {
 
 // POST /api/beneficiaries - Add beneficiary with RSA public key
 export async function POST(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   try {
     const body = await req.json();
     const { name, relationship, email, publicKeyPem, privateKeyPem } = body;
@@ -51,6 +58,9 @@ export async function POST(req: Request) {
 
 // DELETE /api/beneficiaries?id=xyz
 export async function DELETE(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 

@@ -5,6 +5,11 @@ import {
   trustedFriendInvite,
   safetyCheckIn,
   beneficiaryRelease,
+  verificationCode,
+  alreadyRegistered,
+  newDeviceSignedIn,
+  passwordChanged,
+  recoveryStarted,
   type TemplateContext,
 } from "../../lib/email/templates";
 import { parseFrom, resolveDriver, sendEmail } from "../../lib/email";
@@ -53,6 +58,32 @@ function build(template: string): EmailMessage {
         ownerName: "Mr Sharma",
         noteCount: 3,
         releaseId: "ben-1:365",
+      });
+    case "code":
+      return verificationCode(CTX, {
+        email: "sharma@example.com",
+        code: "482915",
+        purpose: "new-device",
+        sendId: "s1",
+      });
+    case "already-signed-up":
+      return alreadyRegistered(CTX, { email: "sharma@example.com", sendId: "s1" });
+    case "new-device":
+      return newDeviceSignedIn(CTX, {
+        email: "sharma@example.com",
+        name: "Mr Sharma",
+        deviceName: "iPhone",
+        deviceId: "dev-1",
+      });
+    case "password-changed":
+      return passwordChanged(CTX, { email: "sharma@example.com", name: "Mr Sharma", sendId: "s1" });
+    case "recovery-started":
+      return recoveryStarted(CTX, {
+        email: "sharma@example.com",
+        name: "Mr Sharma",
+        releasableAt: new Date("2026-11-01T10:00:00Z"),
+        cancelToken: "cancel_abc123",
+        recoveryId: "rec-1",
       });
     default:
       throw new Error(`Unknown template "${template}" in the test table.`);
