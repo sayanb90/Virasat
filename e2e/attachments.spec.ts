@@ -1,9 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 import {
   NOMINEE_NOTE,
   gotoUnlocked,
   resetServer,
-  seedOnboarded,
+  signUp,
 } from "./support/app";
 
 /** A small PNG, enough to prove a binary survives the encryption round trip. */
@@ -24,7 +24,7 @@ async function openNewNoteForm(page: import("@playwright/test").Page) {
 test.describe("Attachments", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("a file can be attached, and survives save and reopen", async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe("Attachments", () => {
     await expect(page.getByLabel("Add note")).toHaveValue(/Second key is with Meera/);
   });
 
-  test("the attachment never reaches the server in the clear", async ({ page, request }) => {
+  test("the attachment never reaches the server in the clear", async ({ page, api }) => {
     await openNewNoteForm(page);
     await page.locator('input[type="file"]').nth(1).setInputFiles({
       name: "passport-scan.png",
@@ -65,7 +65,7 @@ test.describe("Attachments", () => {
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.waitForURL(/banks\.nominees\/note-/);
 
-    const { items } = await (await request.get("/api/vault")).json();
+    const { items } = await (await api.get("/api/vault")).json();
     const stored = JSON.stringify(items);
     expect(stored).not.toContain("In the green folder");
     // The filename lives inside the encrypted payload too, not on the record.

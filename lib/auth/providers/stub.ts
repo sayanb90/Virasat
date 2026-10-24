@@ -54,8 +54,9 @@ export function mintStubToken(claims: {
   name: string | null;
   nonce: string;
 }): string {
-  const json = JSON.stringify(claims);
-  return typeof Buffer !== "undefined"
-    ? Buffer.from(json, "utf8").toString("base64url")
-    : btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  // TextEncoder and btoa exist in browsers and in Node; Buffer's base64url
+  // does not survive the browser bundle's Buffer polyfill.
+  let binary = "";
+  for (const byte of new TextEncoder().encode(JSON.stringify(claims))) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

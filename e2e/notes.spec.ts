@@ -1,18 +1,18 @@
-import { test, expect } from "@playwright/test";
-import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, seedOnboarded } from "./support/app";
+import { test, expect } from "./support/fixtures";
+import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, signUp } from "./support/app";
 
 test.describe("Notes", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
-  test("notes are locked until the passphrase is given", async ({ page }) => {
+  test("notes are locked until Face ID is given", async ({ page }) => {
     await page.goto("/notes");
     await expect(page.getByRole("heading", { name: /Welcome back/i })).toBeVisible();
     await expect(page.getByText(FIRST_GROUP_LABEL)).toBeHidden();
 
-    await page.getByRole("button", { name: /Open my notes/i }).click();
+    await page.getByRole("button", { name: "Use Face ID" }).click();
     await expect(page.getByText(FIRST_GROUP_LABEL)).toBeVisible();
   });
 
@@ -73,9 +73,18 @@ test.describe("Notes", () => {
 
   test("with two Beneficiaries the recipient can be chosen and survives an edit", async ({
     page,
-    request,
+    api,
   }) => {
-    await request.post("/api/beneficiaries", {
+    // A new account starts with nobody; the chooser appears from two.
+    await api.post("/api/beneficiaries", {
+      data: {
+        name: "Eleanor Vance",
+        relationship: "Spouse",
+        email: "eleanor@example.com",
+        publicKeyPem: "-----BEGIN PUBLIC KEY-----\nDEMO\n-----END PUBLIC KEY-----",
+      },
+    });
+    await api.post("/api/beneficiaries", {
       data: {
         name: "Arjun Bhattacharjee",
         relationship: "Son",

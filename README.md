@@ -13,7 +13,7 @@ nominee is — and it is encrypted on their own device before it goes anywhere. 
 they stop confirming they are well, the vault is handed to the people they chose.
 
 The architecture is zero-knowledge by construction: the server stores ciphertext,
-IVs and sealed envelopes, and holds no passphrase, no master key and no plaintext.
+IVs and sealed envelopes, and holds no password, no vault key and no plaintext.
 
 ### A note on vocabulary
 
@@ -51,11 +51,15 @@ the code, plain language in front of the user.
 +-----------------------------------------------------------------------------------+
 |                                 CLIENT-SIDE DEVICE                                |
 |                                                                                   |
-|  Passphrase + Salt ---> [ PBKDF2 (SHA-256, 100k rounds) ] ---> K_master           |
+|  Password + salt --> [ PBKDF2-SHA-256, 600k ] --> K_root --HKDF--> K_auth (proof) |
+|                                                          --HKDF--> K_wrap         |
+|                                                                                   |
+|  K_vault (random, made at sign-up), wrapped by K_wrap, the Recovery Kit,          |
+|  the PIN key and the Face ID key. Only the wrapped copies are stored.             |
 |                                                                                   |
 |  { notes, file, fileName, mimeType }                                              |
 |          |                                                                        |
-|          +--> [ pack ] --> [ AES-256-GCM, fresh 12-byte IV, K_master ] --> blob   |
+|          +--> [ pack ] --> [ AES-256-GCM, fresh 12-byte IV, K_vault ] --> blob    |
 |                                                                                   |
 |  K_chest (per note, 256-bit) --> [ RSA-OAEP 2048, beneficiary public key ]         |
 |                                                      |                            |
@@ -69,13 +73,13 @@ the code, plain language in front of the user.
 |                        ZERO-KNOWLEDGE SERVER & DATABASE                           |
 |                                                                                   |
 |  • Stores Base64/Hex ciphertext, IVs, salt and sealed envelopes.                  |
-|  • No passphrase, no master key, no plaintext body ever reaches it.               |
+|  • No password, no K_vault, no plaintext body ever reaches it.                    |
 |  • Note TITLES are currently stored in the clear — see Known gaps.                |
 +-----------------------------------------------------------------------------------+
 ```
 
 **Read the diagram carefully: `K_chest` does not currently encrypt anything.**
-The payload is sealed with `K_master`, and `K_chest` is minted, sealed to the
+The payload is sealed with `K_vault`, and `K_chest` is minted, sealed to the
 beneficiary and stored beside it. A beneficiary therefore receives a key that
 opens nothing.
 
@@ -85,11 +89,17 @@ well as their public one. All three are in [Known gaps](#-known-gaps), they
 interact, and they are the work standing between this and a product that is
 honestly zero-knowledge.
 
-### Key derivation (`K_master`)
-- **PBKDF2 / SHA-256, 100,000 iterations** → a 256-bit master key, derived
-  client-side (`lib/crypto/argon2.ts`).
-- The key lives in the tab's memory only. It is never written to storage, never
-  sent anywhere, and closing the tab ends the session.
+### Keys (`K_root`, `K_auth`, `K_wrap`, `K_vault`)
+- **PBKDF2 / SHA-256, 600,000 iterations** over the password and a per-account
+  salt gives `K_root`, on the device (`lib/crypto/keys.ts`). HKDF splits it into
+  `K_auth`, the login proof the server stores only a slow hash of, and `K_wrap`,
+  which never leaves the device.
+- **`K_vault`** is random, made once at sign-up, and encrypts every note. The
+  server stores it only wrapped: by `K_wrap`, and by the Recovery Kit code. The
+  phone stores it wrapped by its Face ID key and by its PIN key. Changing the
+  password re-wraps one key; no note is touched.
+- Unlocked, `K_vault` lives in memory only (`lib/auth/client.ts`). A cold
+  start, five minutes in the background, or "Lock now" drops it.
 - **Precomputed hex lookup engine** for encoding large binary ciphertexts
   (PDFs, images) without hitting V8 string-concatenation limits.
 
@@ -113,7 +123,10 @@ honestly zero-knowledge.
 
 | Concern | File |
 | :--- | :--- |
-| Key derivation, master key handling | `lib/crypto/argon2.ts` |
+| The key hierarchy, Recovery Kit codes, the PIN key | `lib/crypto/keys.ts` |
+| What sign-up, sign-in and recovery send, and what stays | `lib/crypto/account.ts` |
+| What a phone holds for Face ID and the PIN | `lib/device/core.ts` |
+| Hex codec (and the old passphrase KDF the specs still pin) | `lib/crypto/argon2.ts` |
 | AES-GCM primitives, chest keys, hex codec | `lib/crypto/aes-gcm.ts` |
 | Payload packing (body + attachment) | `lib/crypto/payloadCodec.ts` |
 | RSA-OAEP envelopes | `lib/crypto/asymmetric.ts` |
@@ -147,7 +160,7 @@ the escalation engine — not the browser — is what depends on them.
 Both the phase badge and the notification log are derived from the chosen cycle:
 `getPhaseFromElapsedDays()` and `generateNotificationsForElapsedDays()` each take
 `cycleDays`, and every cycle length dispatches the same full ladder of 31 alerts
-by its end. `/claim` and `/api/heartbeat` read the user's actual cycle; nothing
+by its end. `/api/heartbeat` reads the user's actual cycle; nothing
 assumes 365 days.
 
 **`POST /api/scheduler` is a test-only time machine.** It can advance the clock
@@ -202,8 +215,14 @@ feature can be switched off per account.
 - **💾 Backup & restore** — export an encrypted backup file (verified to contain
   no plaintext), delete everything, restore, and confirm it still decrypts.
   Backup history is kept locally and individual entries can be forgotten.
-- **📥 Claim & inherited views** — `/claim` for a beneficiary after release,
-  `/inherited` for what has been left to them. Neither is trapped by onboarding.
+- **🔑 Sign-in** — email and password, or Apple / Google / Facebook (a stub
+  driver until the native app), then Face ID or a PIN every time the app opens.
+  A new phone needs an emailed code. Forgotten password: on a phone already set
+  up, or with the printed Recovery Kit and a 72-hour hold the Owner can stop.
+  See [Signing in](#-signing-in).
+- **📥 Family views** — `/claim` tells a beneficiary that notes arrive by email
+  (delivery itself is not built yet), and `/inherited` shows what has been left
+  to the signed-in user. Neither is behind the sign-in gate.
 - **🛡️ Security log** — an append-only record of cryptographic operations, folded
   under Settings rather than sitting in the main navigation.
 - **💳 Billing** — provider-agnostic (stub or Razorpay), webhook-driven, with
@@ -219,7 +238,8 @@ feature can be switched off per account.
 | Route | Purpose |
 | :--- | :--- |
 | `/` | Home — cycle status and the safety check-in |
-| `/welcome`, `/welcome/sign-in` | Onboarding gate and unlock |
+| `/welcome`, `/welcome/sign-in` | Welcome, then sign up or sign in (email, or a provider) |
+| `/welcome/recover`, `/welcome/recover/cancel` | Forgotten password, and the Owner's "this is not me" link |
 | `/notes` | The category tree |
 | `/notes/[subcategoryId]` | Notes within a subcategory |
 | `/notes/[subcategoryId]/new` | Write a note |
@@ -230,11 +250,52 @@ feature can be switched off per account.
 | `/backup` | Export, restore, delete everything |
 | `/settings` | Country, interval, vacation mode, security log |
 | `/audit` | The security log itself |
-| `/claim`, `/inherited` | Beneficiary-side release and inheritance |
+| `/claim`, `/inherited` | For family: how notes arrive, and what was left to you |
 | `/help` | Plain-language help (linked from Settings and `/inherited`) |
 | `GET /api/email` | Email configuration and the send ledger |
 | `GET /api/billing` | Billing configuration and the webhook ledger |
 | `POST /api/billing/webhook` | Signature-verified provider events |
+| `/api/auth/*` | Sign-up, sign-in, device unlock, refresh, recovery — see [Signing in](#-signing-in) |
+
+---
+
+## 🔑 Signing in
+
+Designed in [`docs/authentication.md`](docs/authentication.md); phase 1 is built.
+Every sign-in has two tiers, and **the server**, not the app, decides when both
+are done:
+
+| Tier one | Tier two | Result |
+| :--- | :--- | :--- |
+| Password, or a provider, on a phone already set up | Face ID (a signature from the phone's biometric key) or the PIN (a signature *and* a server-checked PIN) | Full session |
+| Password on a new phone (a provider alone cannot open the vault there) | A code emailed to the account | Full session, then set up Face ID and PIN |
+| A remembered sign-in (refresh token) | Face ID or PIN, on every cold start and after 5 minutes away | Full session |
+
+- **Every route calls `requireSession`** (`lib/auth/http.ts`) or is on a short,
+  commented public allow-list. `e2e/auth.spec.ts` walks `app/api/` and fails if
+  any other route answers without a session.
+- **Tokens, not cookies:** a 15-minute access token in memory, and a 30-day
+  refresh token that rotates on every use; presenting one twice ends that
+  sign-in everywhere. Both are stored server-side as hashes.
+- **The PIN:** five wrong PINs delete the server's half of the PIN key, after
+  which only the password brings that phone back.
+- **Social providers** take name and email only, and never link to an existing
+  account on email alone — the password is asked first. Until the native app
+  (phase 4), `AUTH_PROVIDERS_DRIVER=stub` shows a test sheet; it refuses to run
+  in a production build outside the e2e harness.
+- **Forgotten password:** path A on a phone already set up (Face ID / PIN + an
+  email code), path B with the printed Recovery Kit (an email code + the kit +
+  a 72-hour hold, with an emailed "this is not me" link). The kit is spent on
+  use and a new one issued.
+- **The browser build is a harness, not the product.** Device keys live in
+  IndexedDB and "Face ID" is a confirm button (`lib/device/bridge.ts`); the
+  server still checks the biometric key's signature. The native app will
+  replace the bridge with Keychain / Keystore.
+
+| Variable | Meaning |
+| :--- | :--- |
+| `AUTH_PROVIDERS_DRIVER` | `stub` *(default)* or `native` (not built yet; reports not-ready) |
+| `AUTH_SERVER_SECRET` | Keys the fake salts for unknown emails. Random per process if unset, which is right only while the store is in memory |
 
 ---
 
@@ -270,7 +331,6 @@ email prints to the server log instead of going out.
 | `EMAIL_DRIVER` | `console` *(default)*, `resend` or `sendgrid` |
 | `EMAIL_FROM` | `"Virasat <hello@yourdomain.com>"` — the domain must be verified with your provider |
 | `APP_URL` | Absolute base for links in emails. Defaults to localhost, which is wrong anywhere but development |
-| `OWNER_NAME` / `OWNER_EMAIL` | Who the check-in ladder is addressed to. There are no real accounts yet; with `OWNER_EMAIL` unset no check-in email is sent |
 | `RESEND_API_KEY` / `SENDGRID_API_KEY` | Set only the one matching `EMAIL_DRIVER` |
 
 `console` is the default deliberately: a half-configured deployment should
@@ -452,26 +512,28 @@ npm run test:all  # both
 Both run on every pull request (`.github/workflows/ci.yml`, no branch filter, so
 stacked PRs are gated too).
 
-**Cucumber (69 scenarios)** covers things with no UI: AES-GCM round trips and key
+**Cucumber (95 scenarios)** covers things with no UI: AES-GCM round trips and key
 derivation, the note payload codec with attachments (a real 1.4MB buffer),
 taxonomy resolution and locale packs, escalation phase maths *at every cycle
 length*, the backup format, the vacation cap and credit-back arithmetic, and a
 guard that no key, salt or passphrase material is ever written to the console or
-put into an email.
+put into an email. `10_authentication.feature` runs the sign-in, PIN, refresh,
+social and recovery rules against the real device-side crypto.
 
 **Playwright (58 scenarios)** drives a real browser at 390×844 against the
 **production build**, not the dev server, so the specs exercise what ships:
 
 | Spec | Covers |
 | :--- | :--- |
-| `onboarding` | the welcome gate, and that an invited Trusted Friend or claiming Beneficiary is never trapped by it |
+| `auth` | no route answers without a session, a password alone cannot reach the notes, a new phone needs an emailed code, Face ID and PIN unlock, five wrong PINs lock, Google sign-up still asks for a password, both forgotten-password paths, the Owner's stop link, the Recovery Kit reminder |
+| `onboarding` | the welcome gate, sign-up, and that an invited Trusted Friend or a Beneficiary is never trapped by it |
 | `notes` | unlock, India vocabulary, write → save → decrypt, edit-in-place without duplicating, delete, recipient chooser |
 | `trusted-friends` | invite → accept in a second browser context → turns green, duplicate refusal, disable |
 | `backup` | export, **no plaintext in the file**, delete everything, restore, confirm it still decrypts |
 | `safety-and-settings` | plain-language safety screen, interval reaching the engine, the 6-month cap enforced server-side, pause and resume |
 | `handover` | release follows the owner's cycle rather than a hardcoded year |
 | `navigation` | every drawer destination resolves, an unknown address gets the reassuring not-found page, and **no screen renders dark surfaces inside the light shell** |
-| `security` | a wrong passphrase cannot read any note body, and locking clears the session |
+| `security` | another account cannot see or read this one's notes, locking asks for Face ID again, and the vault key never reaches the server |
 | `attachments` | a file survives save and reopen, never reaches the server in the clear, and can be removed without losing the note |
 | `localisation` | switching country re-labels the tree, hides market-specific sections, and **never makes a note unreachable** |
 | `email` | the invitation really is sent, the ladder goes out **once** however often the safety screen is read, a paused account is not chased, and no API key is ever served |
@@ -513,7 +575,9 @@ the encrypted payload and decrypt the list client-side. Pinned by
 generates the key pair in the browser and posts **both halves** to
 `POST /api/beneficiaries`, which stores the private key and hands it back to any
 caller of `GET /api/beneficiaries`. The field is commented as demo convenience,
-and the `/claim` demo depends on it.
+The handover design in `docs/authentication.md` §7 removes beneficiary key
+pairs altogether (a password-protected PDF and a code rebuilt from a Witness
+and a Beneficiary piece), which is the planned fix.
 
 This one is not independent: **fixing defect 1 while this stands makes things
 worse, not better.** Once the payload is sealed to `K_chest` and `K_chest` is
@@ -527,18 +591,19 @@ piece of work.
 
 ### Not yet built
 
-- **There is no authentication.** Every API route is open: anyone who can reach
-  the server can list, write and delete notes. The crypto means they get
-  ciphertext, but availability and integrity are unprotected, and titles are
-  readable (defect 2).
-- **The store is in-memory** (`lib/state/mockDatabase.ts`) and resets on
-  restart. Persistence is the obvious next step; the class interface is already
-  the seam to put it behind.
+- **The native app** (Capacitor, Keychain / Keystore, real Face ID) and the
+  real **Apple, Google and Facebook** drivers — phases 2–4 of
+  `docs/authentication.md`. The browser build runs the whole flow on a harness.
+- **Handover by email** (phase 3b). Nothing delivers notes to a beneficiary
+  yet; `/claim` says how it will work.
+- **The store is in-memory** (`lib/state/mockDatabase.ts`, `lib/auth/store.ts`)
+  and resets on restart, which now also signs everyone out. Persistence is the
+  next step; both classes are the seam to put it behind.
+- **Phase 5 hardening:** per-IP rate limits (limits today are per account and
+  per device), a device list with remote removal in Settings, and changing the
+  password from Settings.
 - **SMS and WhatsApp are still simulated.** Email is wired up (see
   [Email](#-email)); the other two channels are not.
-- **Passphrase recovery does not exist.** By design — but it means a forgotten
-  passphrase is unrecoverable, and the UI does not yet say so loudly enough for
-  this audience.
 
 ### Untested flows
 
@@ -567,6 +632,10 @@ Known blind spots, in rough order of what they would catch:
   while the phase badge was already proportional, so a user on a 6-month cycle
   could sit in Phase 1 while the log claimed nothing had been sent. Now derived
   from the cycle, with scenarios at 183/365/548/730 days.
+- **There was no authentication**: every API route was open, and one server
+  held one shared vault. Now every route needs a two-tier session and reads
+  the caller's own vault (`vaultFor`), and the pre-filled passphrase and the
+  Face ID button that only submitted it are gone.
 - `POST /api/scheduler` — an unauthenticated remote "release my vault now"
   button — is now gated behind `VIRASAT_E2E`.
 - Trusted-friend invite tokens came from two `Math.random()` draws. They are now
@@ -599,12 +668,12 @@ the relevant guide in `node_modules/next/dist/docs/`. In particular:
 
 - `params` and `searchParams` are **Promises**. In a client component, unwrap
   them with React's `use()`.
-- `useSearchParams` requires a Suspense boundary. This app avoids it by using
-  path segments instead.
+- `useSearchParams` requires a Suspense boundary. This app mostly uses path
+  segments instead; `/welcome/sign-in` wraps its one use in `<Suspense>`.
 - The React Compiler lint rules are on: no `Date.now()` during render
   (`react-hooks/purity`), and no `setState` in an effect
   (`react-hooks/set-state-in-effect`). For localStorage-backed state the app
-  uses `useSyncExternalStore` — see `lib/recents.ts`, `lib/onboarding.ts`,
+  uses `useSyncExternalStore` — see `lib/recents.ts`, `lib/auth/kitReminder.ts`,
   `lib/locale/LocaleProvider.tsx`, `lib/vault/backup.ts`.
 - `viewport-fit=cover` is set deliberately. Without it, `env(safe-area-inset-*)`
   resolves to 0 and the layout letterboxes away from the notch.

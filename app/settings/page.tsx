@@ -9,6 +9,10 @@ import { useLocale } from "@/lib/locale/LocaleProvider";
 import { useVaultSession } from "@/lib/vault/VaultSession";
 import { COUNTRY_OPTIONS, type CountryCode } from "@/lib/taxonomy";
 import type { AccountSettings } from "@/lib/state/mockDatabase";
+import { apiFetch, makeNewRecoveryKit, signOut, useAuth } from "@/lib/auth/client";
+import { clearKitPending } from "@/lib/auth/kitReminder";
+import { RecoveryKit } from "@/components/auth/RecoveryKit";
+import { ErrorText, messageOf } from "@/components/auth/Fields";
 
 interface CycleOption {
   days: number;
@@ -22,7 +26,7 @@ interface VacationPreset {
 
 export default function SettingsPage() {
   const { country, setCountry, taxonomy } = useLocale();
-  const { masterKeyHex, lock } = useVaultSession();
+  const { vaultKeyHex, lock } = useVaultSession();
 
   const [open, setOpen] = useState<string | null>(null);
   const [settings, setSettings] = useState<AccountSettings | null>(null);
@@ -31,12 +35,24 @@ export default function SettingsPage() {
   const [onVacation, setOnVacation] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revealKey, setRevealKey] = useState(false);
+  const { user, device } = useAuth();
+  const [newKit, setNewKit] = useState<string | null>(null);
+  const [kitError, setKitError] = useState("");
+
+  const makeKit = async () => {
+    setKitError("");
+    try {
+      setNewKit((await makeNewRecoveryKit()).recoveryCode);
+    } catch (err) {
+      setKitError(messageOf(err));
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/settings");
+        const res = await apiFetch("/api/settings");
         const data = await res.json();
         if (cancelled || !data.success) return;
         setSettings(data.settings);
@@ -55,7 +71,7 @@ export default function SettingsPage() {
   const patch = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const res = await fetch("/api/settings", {
+      const res = await apiFetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -195,7 +211,7 @@ export default function SettingsPage() {
         <Accordion id="data" label="My data" open={open === "data"} onToggle={toggle}>
           <p className="text-[17px] leading-relaxed text-[var(--text-muted)]">
             Everything you write is scrambled on your device before it is saved. Virasat stores
-            only the scrambled version and never holds your passphrase, so nobody here can read
+            only the scrambled version and never holds your password, so nobody here can read
             your notes.
           </p>
           <SettingsLink href="/audit" label="View your security log" />
@@ -209,14 +225,13 @@ export default function SettingsPage() {
           onToggle={toggle}
         >
           <p className="mb-4 text-[17px] leading-relaxed text-[var(--text-muted)]">
-            This key is produced from your passphrase on this device every time you unlock. It is
-            never sent to us, so if you forget your passphrase there is nothing we can do to
-            recover your notes.
+            This key locks every note. It was made on your phone when you joined and is never sent
+            to us. Your password, Face ID, PIN and Recovery Kit each open a locked copy of it.
           </p>
 
           {revealKey ? (
             <p className="break-all rounded-[12px] bg-[var(--surface-sunken)] p-4 font-mono text-[14px] text-[var(--text)]">
-              {masterKeyHex || "Unlock your notes to see this."}
+              {vaultKeyHex || "Unlock your notes to see this."}
             </p>
           ) : (
             <Button variant="secondary" onClick={() => setRevealKey(true)}>
@@ -227,6 +242,49 @@ export default function SettingsPage() {
           <div className="mt-5">
             <Button variant="danger" onClick={lock}>
               Lock Virasat now
+            </Button>
+          </div>
+        </Accordion>
+
+        <Accordion
+          id="signin"
+          label="Signing in"
+          open={open === "signin"}
+          onToggle={toggle}
+          summary={user?.email}
+        >
+          <p className="mb-4 text-[17px] leading-relaxed text-[var(--text-muted)]">
+            Signed in as <strong className="text-[var(--text)]">{user?.email}</strong>.{" "}
+            {device?.biometric
+              ? "This phone opens with Face ID or your PIN."
+              : "This phone opens with your PIN."}
+          </p>
+
+          {newKit ? (
+            <RecoveryKit
+              code={newKit}
+              email={user?.email ?? ""}
+              onDone={() => {
+                setNewKit(null);
+                clearKitPending();
+              }}
+            />
+          ) : (
+            <>
+              <p className="mb-3 text-[16px] leading-relaxed text-[var(--text-muted)]">
+                Lost your Recovery Kit, or think someone else has seen it? Make a new one. The old
+                one stops working straight away.
+              </p>
+              <Button variant="secondary" onClick={makeKit}>
+                Make a new Recovery Kit
+              </Button>
+              <ErrorText>{kitError}</ErrorText>
+            </>
+          )}
+
+          <div className="mt-5">
+            <Button variant="danger" onClick={() => void signOut()}>
+              Sign out of this phone
             </Button>
           </div>
         </Accordion>

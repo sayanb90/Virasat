@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 import { readFileSync } from "node:fs";
 import {
   NOMINEE_NOTE,
@@ -6,18 +6,18 @@ import {
   gotoUnlocked,
   navigateViaMenu,
   resetServer,
-  seedOnboarded,
+  signUp,
 } from "./support/app";
 
 test.describe("Backup", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("a backup downloads, contains no plaintext, and restores so notes decrypt", async ({
     page,
-    request,
+    api,
   }) => {
     await createNote(page, NOMINEE_NOTE);
 
@@ -44,16 +44,16 @@ test.describe("Backup", () => {
     await expect(page.getByText(/Saved 1 note to virasat-backup-/)).toBeVisible();
 
     // Lose everything, then restore from the file.
-    const { items } = await (await request.get("/api/vault")).json();
+    const { items } = await (await api.get("/api/vault")).json();
     for (const item of items) {
-      await request.delete(`/api/vault?id=${encodeURIComponent(item.id)}`);
+      await api.delete(`/api/vault?id=${encodeURIComponent(item.id)}`);
     }
-    expect((await (await request.get("/api/vault")).json()).items).toHaveLength(0);
+    expect((await (await api.get("/api/vault")).json()).items).toHaveLength(0);
 
     await page.setInputFiles('input[type="file"]', file as string);
     await expect(page.getByText(/Restored 1 of 1/)).toBeVisible();
 
-    // The decisive check: restored ciphertext still opens with the passphrase.
+    // The decisive check: restored ciphertext still opens with the same vault key.
     await gotoUnlocked(page, `/notes/${NOMINEE_NOTE.subcategoryId}`);
     await page.getByRole("link", { name: new RegExp(NOMINEE_NOTE.title) }).click();
     await expect(page.getByText(/Nominee is Meera/)).toBeVisible();

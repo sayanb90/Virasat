@@ -22,7 +22,7 @@ export default function NotePage({
   const { subcategoryId, noteId } = use(params);
   const router = useRouter();
   const { country, taxonomy, ready } = useLocale();
-  const { masterKey } = useVaultSession();
+  const { vaultKey } = useVaultSession();
 
   const [note, setNote] = useState<VaultItemRecord | null>(null);
   const [body, setBody] = useState("");
@@ -36,7 +36,7 @@ export default function NotePage({
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    if (!masterKey) return;
+    if (!vaultKey) return;
     let cancelled = false;
 
     (async () => {
@@ -49,7 +49,7 @@ export default function NotePage({
 
         if (found) {
           try {
-            const decrypted = await decryptNoteBody(found, masterKey);
+            const decrypted = await decryptNoteBody(found, vaultKey);
             if (cancelled) return;
             setBody(decrypted.body);
             setFileName(decrypted.fileName);
@@ -68,7 +68,7 @@ export default function NotePage({
     return () => {
       cancelled = true;
     };
-  }, [masterKey, noteId, reloadToken]);
+  }, [vaultKey, noteId, reloadToken]);
 
   useEffect(() => {
     fetchBeneficiaries().then(setBeneficiaries).catch(() => setBeneficiaries([]));
@@ -99,7 +99,7 @@ export default function NotePage({
     }
   };
 
-  if (!masterKey) return <UnlockScreen />;
+  if (!vaultKey) return <UnlockScreen />;
   if (!ready) return null;
 
   if (loading) {
@@ -123,7 +123,7 @@ export default function NotePage({
         groupLabel={labels.groupLabel}
         subcategoryLabel={labels.subcategoryLabel}
         subcategoryId={subcategoryId}
-        masterKey={masterKey}
+        vaultKey={vaultKey}
         beneficiaries={beneficiaries}
         noteId={note.id}
         initialTitle={note.title}

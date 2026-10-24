@@ -5,6 +5,7 @@ import { RefreshCw, ShieldCheck } from "lucide-react";
 import { Eyebrow, PageTitle, EmptyState } from "@/components/ui/Page";
 import { Button } from "@/components/ui/Button";
 import type { AuditLogRecord } from "@/lib/state/mockDatabase";
+import { apiFetch } from "@/lib/auth/client";
 
 /** Plain-English names for the internal log categories. */
 const CATEGORY_LABELS: Record<AuditLogRecord["category"], string> = {
@@ -29,7 +30,7 @@ export default function SecurityLogPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/audit");
+        const res = await apiFetch("/api/audit");
         const data = await res.json();
         if (!cancelled && data.success) setLogs(data.logs);
       } catch (err) {

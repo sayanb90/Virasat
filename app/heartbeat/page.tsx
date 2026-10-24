@@ -6,6 +6,7 @@ import { CircleCheck, Pause, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Eyebrow, PageTitle } from "@/components/ui/Page";
 import { Button } from "@/components/ui/Button";
 import type { PhaseInfo } from "@/lib/state/heartbeatMachine";
+import { apiFetch } from "@/lib/auth/client";
 
 interface SafetyState {
   simulatedElapsedDays: number;
@@ -70,7 +71,7 @@ export default function SafetyCheckInPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/heartbeat");
+        const res = await apiFetch("/api/heartbeat");
         const data = await res.json();
         if (!cancelled && data.success) setState(data);
       } catch (err) {
@@ -85,7 +86,7 @@ export default function SafetyCheckInPage() {
   const checkIn = useCallback(async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/heartbeat", { method: "POST" });
+      const res = await apiFetch("/api/heartbeat", { method: "POST" });
       if ((await res.json()).success) {
         setJustCheckedIn(true);
         setReloadToken((n) => n + 1);

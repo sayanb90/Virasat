@@ -41,14 +41,13 @@ export default defineConfig({
       // Unlocks /api/test/reset and /api/scheduler for this run only.
       VIRASAT_E2E: "1",
       // Email: the console driver sends nothing, so nothing leaves the
-      // machine. An owner address is set so the escalation ladder actually
-      // has somewhere to go — without it the idempotency specs would pass
-      // vacuously, having proved only that zero sends stay zero.
+      // machine. The ladder goes to the signed-in account, which the specs
+      // create as owner@virasat.test (e2e/support/app.ts).
       EMAIL_DRIVER: "console",
       EMAIL_FROM: "Virasat <hello@virasat.test>",
       APP_URL: BASE_URL,
-      OWNER_NAME: "Test Owner",
-      OWNER_EMAIL: "owner@virasat.test",
+      // The test sheet for Apple / Google / Facebook.
+      AUTH_PROVIDERS_DRIVER: "stub",
     },
   },
 });

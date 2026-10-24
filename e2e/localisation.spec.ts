@@ -1,8 +1,8 @@
-import { test, expect } from "@playwright/test";
-import { NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, seedOnboarded } from "./support/app";
+import { test, expect } from "./support/fixtures";
+import { NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, signUp, unlockIfNeeded } from "./support/app";
 
 async function chooseCountry(page: import("@playwright/test").Page, name: string) {
-  await page.goto("/settings");
+  await gotoUnlocked(page, "/settings");
   await page.getByRole("button", { name: /^Country/ }).click();
   await page.getByRole("button", { name, exact: true }).click();
   await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute(
@@ -14,7 +14,7 @@ async function chooseCountry(page: import("@playwright/test").Page, name: string
 test.describe("Country and vocabulary", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("India and International label the same category differently", async ({ page }) => {
@@ -69,6 +69,7 @@ test.describe("Country and vocabulary", () => {
     await chooseCountry(page, "International");
 
     await page.reload();
+    await unlockIfNeeded(page);
     await page.getByRole("button", { name: /^Country/ }).click();
     await expect(page.getByRole("button", { name: "International", exact: true })).toHaveAttribute(
       "aria-pressed",

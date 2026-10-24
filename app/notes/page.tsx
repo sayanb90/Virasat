@@ -8,17 +8,20 @@ import { useVaultSession } from "@/lib/vault/VaultSession";
 import { UnlockScreen } from "@/components/UnlockScreen";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import type { VaultItemRecord } from "@/lib/state/mockDatabase";
+import { apiFetch } from "@/lib/auth/client";
+import { useKitPending } from "@/lib/auth/kitReminder";
 
 export default function CategoriesPage() {
   const { taxonomy, ready } = useLocale();
-  const { masterKey } = useVaultSession();
+  const { vaultKey } = useVaultSession();
+  const kitPending = useKitPending();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<VaultItemRecord[]>([]);
 
   useEffect(() => {
-    if (!masterKey) return;
+    if (!vaultKey) return;
     let cancelled = false;
-    fetch("/api/vault")
+    apiFetch("/api/vault")
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data.success) setNotes(data.items);
@@ -27,7 +30,7 @@ export default function CategoriesPage() {
     return () => {
       cancelled = true;
     };
-  }, [masterKey]);
+  }, [vaultKey]);
 
   /** How many notes sit under each subcategory, for the count badges. */
   const counts = useMemo(() => {
@@ -38,7 +41,7 @@ export default function CategoriesPage() {
     return map;
   }, [notes]);
 
-  if (!masterKey) return <UnlockScreen />;
+  if (!vaultKey) return <UnlockScreen />;
   if (!ready) return null;
 
   const toggle = (id: string) =>
@@ -46,6 +49,15 @@ export default function CategoriesPage() {
 
   return (
     <div className="pb-10 pt-2">
+      {kitPending && (
+        <Link
+          href="/settings"
+          className="mb-4 block rounded-[14px] border border-[var(--marigold)] bg-[var(--surface-sunken)] p-4 text-[16px] leading-relaxed text-[var(--text)]"
+        >
+          <strong>Save your Recovery Kit.</strong> It is the only way back in if you forget your
+          password and lose this phone. Open Settings, then Signing in.
+        </Link>
+      )}
       <ul className="divide-y divide-[var(--border)]">
         {taxonomy.map((group) => {
           const open = openGroups[group.id] ?? false;

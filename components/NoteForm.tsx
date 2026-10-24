@@ -14,7 +14,7 @@ export interface NoteFormProps {
   groupLabel: string;
   subcategoryLabel: string;
   subcategoryId: string;
-  masterKey: CryptoKey;
+  vaultKey: CryptoKey;
   beneficiaries: BeneficiaryRecord[];
   noteId?: string;
   initialTitle?: string;
@@ -30,7 +30,7 @@ export function NoteForm({
   groupLabel,
   subcategoryLabel,
   subcategoryId,
-  masterKey,
+  vaultKey,
   beneficiaries,
   noteId,
   initialTitle = "",
@@ -88,7 +88,7 @@ export function NoteForm({
         beneficiaryId: beneficiaryId || beneficiaries[0]?.id,
         file: attachment,
       };
-      const saved = await saveNote(draft, masterKey, beneficiaries);
+      const saved = await saveNote(draft, vaultKey, beneficiaries);
       onSaved(saved.id);
       router.refresh();
     } catch (err) {

@@ -1,6 +1,7 @@
 # Signing in: identity, device unlock, and the vault key
 
-**Status:** proposal, for review. Nothing here is built yet.
+**Status:** phase 1 built (server sign-in, device unlock on the browser harness,
+recovery); phases 2–5 are not. See §9.
 **Author:** drafted with Claude Code, 24 October 2026.
 
 ---
@@ -390,7 +391,8 @@ shows a "Continue as Test User (Google)" button that mints a fake verified
 identity locally. A developer can run the whole flow, and the specs can
 exercise it, with no provider accounts. A half-configured deployment cannot
 accidentally accept stub identities: the stub refuses to load when
-`NODE_ENV=production`.
+`NODE_ENV=production`, unless the end-to-end harness (`VIRASAT_E2E=1`) is
+running, since Playwright tests the production build.
 
 ---
 
@@ -637,6 +639,12 @@ longer need a key pair at all: the PDF and the handover code replace them.
 
 Phase 1 is useful by itself: it closes the "every API route is open" gap,
 even before there is a native app.
+
+**Phase 1 is built** (October 2026): `lib/auth`, `lib/crypto/keys.ts`,
+`lib/device`, the screens under `/welcome`, `features/10_authentication.feature`
+and `e2e/auth.spec.ts`. Two deviations from the table: the Beneficiary claim
+page no longer reads the vault (it explains email delivery, which is phase 3b),
+and per-IP rate limits are left to phase 5.
 
 ---
 

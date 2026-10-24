@@ -21,7 +21,7 @@ export default function SubcategoryNotesPage({
 }) {
   const { subcategoryId } = use(params);
   const { country, taxonomy, ready } = useLocale();
-  const { masterKey } = useVaultSession();
+  const { vaultKey } = useVaultSession();
 
   const [notes, setNotes] = useState<VaultItemRecord[]>([]);
   const [previews, setPreviews] = useState<Record<string, string>>({});
@@ -37,7 +37,7 @@ export default function SubcategoryNotesPage({
   const location = locateSubcategory(taxonomy, subcategoryId);
 
   useEffect(() => {
-    if (!masterKey) return;
+    if (!vaultKey) return;
     let cancelled = false;
 
     (async () => {
@@ -51,7 +51,7 @@ export default function SubcategoryNotesPage({
         const entries = await Promise.all(
           all.map(async (note) => {
             try {
-              const { body } = await decryptNoteBody(note, masterKey);
+              const { body } = await decryptNoteBody(note, vaultKey);
               return [note.id, body] as const;
             } catch {
               return [note.id, ""] as const;
@@ -69,9 +69,9 @@ export default function SubcategoryNotesPage({
     return () => {
       cancelled = true;
     };
-  }, [masterKey]);
+  }, [vaultKey]);
 
-  if (!masterKey) return <UnlockScreen />;
+  if (!vaultKey) return <UnlockScreen />;
   if (!ready) return null;
 
   if (!location) {

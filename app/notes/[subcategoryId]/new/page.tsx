@@ -20,7 +20,7 @@ export default function NewNotePage({
   const { subcategoryId } = use(params);
   const router = useRouter();
   const { taxonomy, ready } = useLocale();
-  const { masterKey } = useVaultSession();
+  const { vaultKey } = useVaultSession();
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRecord[]>([]);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function NewNotePage({
 
   const location = locateSubcategory(taxonomy, subcategoryId);
 
-  if (!masterKey) return <UnlockScreen />;
+  if (!vaultKey) return <UnlockScreen />;
   if (!ready) return null;
 
   if (!location) {
@@ -48,7 +48,7 @@ export default function NewNotePage({
       groupLabel={location.group.label}
       subcategoryLabel={location.subcategory.label}
       subcategoryId={subcategoryId}
-      masterKey={masterKey}
+      vaultKey={vaultKey}
       beneficiaries={beneficiaries}
       onCancel={() => router.back()}
       onSaved={(id) => router.replace(`/notes/${subcategoryId}/${id}`)}
