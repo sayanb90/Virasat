@@ -8,6 +8,9 @@ next. The designs behind it are:
 - [`release-and-entitlement.md`](release-and-entitlement.md): when the vault
   opens, entitlement and billing.
 
+How to take what is built live (accounts, settings, deploy steps, the
+pre-launch gate) is in [`runbook.md`](runbook.md). Keep both current.
+
 This file says what is **built**, what is **decided but not built**, and the
 **order** to build the rest in. When a phase lands, move it from "Next" to
 "Done" and update the design doc's status line.

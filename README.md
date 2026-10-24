@@ -819,6 +819,8 @@ npx cap open android    # Android Studio: an API 30+ emulator with a fingerprint
 - CI compiles both apps when native code changes (`.github/workflows/native.yml`).
   What has and has not been checked on a device is in
   [`docs/developmentPlan.md`](docs/developmentPlan.md), with the checklist.
+- **Going live:** every account, setting, build and deploy step, and the
+  pre-launch gate, is in [`docs/runbook.md`](docs/runbook.md).
 
 ### Device harness
 
