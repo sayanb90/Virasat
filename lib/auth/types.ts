@@ -12,10 +12,8 @@ export interface WrappedKey {
   ciphertextHex: string;
 }
 
-export interface KdfParams {
-  saltHex: string;
-  iterations: number;
-}
+export type { KdfParams } from "../crypto/kdfPolicy";
+import type { KdfParams } from "../crypto/kdfPolicy";
 
 export interface UserRecord {
   id: string;

@@ -51,7 +51,7 @@ the code, plain language in front of the user.
 +-----------------------------------------------------------------------------------+
 |                                 CLIENT-SIDE DEVICE                                |
 |                                                                                   |
-|  Password + salt --> [ PBKDF2-SHA-256, 600k ] --> K_root --HKDF--> K_auth (proof) |
+|  Password + salt --> [ Argon2id, 64 MiB    ] --> K_root --HKDF--> K_auth (proof) |
 |                                                          --HKDF--> K_wrap         |
 |                                                                                   |
 |  K_vault (random, made at sign-up), wrapped by K_wrap, the Recovery Kit,          |
@@ -90,8 +90,11 @@ interact, and they are the work standing between this and a product that is
 honestly zero-knowledge.
 
 ### Keys (`K_root`, `K_auth`, `K_wrap`, `K_vault`)
-- **PBKDF2 / SHA-256, 600,000 iterations** over the password and a per-account
-  salt gives `K_root`, on the device (`lib/crypto/keys.ts`). HKDF splits it into
+- **Argon2id, 64 MiB, 2 passes** (WebAssembly, `hash-wasm`) over the password
+  and a per-account salt gives `K_root`, on the device (`lib/crypto/keys.ts`).
+  Accounts made earlier used PBKDF2-SHA-256 at 600,000 rounds and move to
+  Argon2id at their next sign-in, unseen. The server refuses anything weaker
+  than OWASP's floor (`lib/crypto/kdfPolicy.ts`). HKDF splits it into
   `K_auth`, the login proof the server stores only a slow hash of, and `K_wrap`,
   which never leaves the device.
 - **`K_vault`** is random, made once at sign-up, and encrypts every note. The
@@ -279,6 +282,17 @@ are done:
   sign-in everywhere. Both are stored server-side as hashes.
 - **The PIN:** five wrong PINs delete the server's half of the PIN key, after
   which only the password brings that phone back.
+- **Per network:** sign-in, codes, PINs, recovery and social sign-in are
+  limited per client address as well (`lib/auth/rateLimit.ts`): 429 with
+  `Retry-After`. IPv6 counts per /64. The address is read from the proxy's
+  header, so set `CLIENT_IP_HEADER` and `TRUSTED_PROXY_HOPS` to match the host.
+- **In Settings:** change the password (the current one is asked again;
+  every other sign-in ends; an email says so), the phones signed in, with
+  removal of a lost one (its PIN stops working at once), and alerts on this
+  phone. A banner on every screen, with a one-tap stop, while someone is
+  recovering the account with the Recovery Kit.
+- **Alerts** (`lib/push`): the Owner's phones are told when a recovery starts,
+  alongside the email. The lock-screen text names nothing in the vault.
 - **Social providers** take name and email only, and never link to an existing
   account on email alone — the password is asked first. In the iOS and
   Android apps each provider's own sheet signs in (`lib/auth/socialSheets.ts`)
@@ -303,6 +317,8 @@ are done:
 | `APPLE_CLIENT_IDS` | `native`: the app's bundle id (comma-separated if more) |
 | `GOOGLE_CLIENT_IDS` | `native`: the iOS client id and the web client id Android's sheet uses |
 | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | `native`: the Meta app. `FACEBOOK_GRAPH_VERSION` defaults to `v23.0` |
+| `CLIENT_IP_HEADER`, `TRUSTED_PROXY_HOPS` | Where the client's address is, for the per-network limits. Default `x-forwarded-for`, 1 |
+| `PUSH_DRIVER` | `console` *(default)* or `native`: APNs for iOS (`APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC`, `APNS_SANDBOX`) and FCM for Android (`FCM_SERVICE_ACCOUNT_JSON`) |
 | `AUTH_SERVER_SECRET` | Keys the fake salts for unknown emails. Random per process if unset, which is right only while the store is in memory |
 
 ---
@@ -527,7 +543,7 @@ static export on one origin, the API on another, exactly as the native app
 talks to it — so every PR is checked against the two artifacts that ship.
 `native.yml` also compiles the iOS and Android apps when native code changes.
 
-**Unit tests (`tests/unit`, 106 tests)** use Node's own test runner, with no
+**Unit tests (`tests/unit`, 235 tests)** use Node's own test runner, with no
 framework. `client.test.ts` runs the app's sign-in code on a "phone": the
 native bridge over a fake plugin that answers in the real plugins' formats,
 against the real API route handlers served in-process
@@ -536,11 +552,11 @@ CORS and API-only rules, the static server's resolution and Capacitor modes,
 the three builds, and the browser harness's storage.
 
 **Coverage.** `npm run test:coverage` writes `coverage/index.html` and fails
-if any file written in phases 2 and 3 drops below 100% of lines and
+if any file written from phase 2 on drops below 100% of lines and
 functions or 95% of branches (`.c8-new-code.json`). Older code is reported,
 not yet gated.
 
-**Cucumber (119 scenarios)** covers things with no UI: AES-GCM round trips and key
+**Cucumber (139 scenarios)** covers things with no UI: AES-GCM round trips and key
 derivation, the note payload codec with attachments (a real 1.4MB buffer),
 taxonomy resolution and locale packs, escalation phase maths *at every cycle
 length*, the backup format, the vacation cap and credit-back arithmetic, and a
@@ -550,6 +566,9 @@ social and recovery rules against the real device-side crypto. `11_hardware_devi
 same flows on hardware keys: a new face, a cancelled prompt, setting the phone
 up again. `12_native_app_and_api_host.feature` covers who may call the API, what
 the API host serves, and that every screen survives a reload in the shell.
+`13_real_social_providers.feature` checks real signed Apple, Google and
+Facebook tokens and every refusal; `14_hardening.feature` the per-network
+limits, a lost phone, changing the password, the move to Argon2id and alerts.
 
 **Playwright (87 tests, 2 skipped on purpose)** drives a real browser at 390×844 against the
 **production build**, not the dev server, so the specs exercise what ships:
@@ -693,7 +712,7 @@ Known blind spots, in rough order of what they would catch:
   design tokens in `app/globals.css`
 - **Motion:** Framer Motion
 - **Icons:** Lucide React
-- **Cryptography:** WebCrypto (AES-256-GCM, PBKDF2, RSA-OAEP)
+- **Cryptography:** WebCrypto (AES-256-GCM, HKDF, ECDSA P-256), Argon2id through `hash-wasm`, `jose` for provider tokens
 - **Tests:** Cucumber (logic) + Playwright (end-to-end)
 
 ### Next.js 16 conventions that will bite you
@@ -792,6 +811,10 @@ npx cap open android    # Android Studio: an API 30+ emulator with a fingerprint
   id), `FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` build settings. A provider
   without its ids is simply not offered. Apple is offered on iOS only. The
   Facebook SDK logs no app events and collects no advertising id.
+- **Alerts** need, on Android, the Firebase project's `google-services.json`
+  in `android/app/` (not in the repo); without it, turning alerts on says the
+  phone did not answer. iOS needs the Push Notifications capability on the
+  App ID.
 - CI compiles both apps when native code changes (`.github/workflows/native.yml`).
   What has and has not been checked on a device is in
   [`docs/developmentPlan.md`](docs/developmentPlan.md), with the checklist.

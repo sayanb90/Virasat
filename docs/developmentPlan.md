@@ -276,6 +276,42 @@ fingerprint in Settings and use *Extended controls → Fingerprint*.
   Cucumber `13_real_social_providers.feature`. **Not verified:** any real
   provider, account or device.
 
+### On `authenticationEntitlements`: phase 5, hardening
+
+- **Limits per network** (`lib/auth/rateLimit.ts`) on sign-in, prelogin,
+  codes, PINs, recovery and social sign-in, alongside the existing per-account
+  and per-phone ones. A fixed window per bucket and client address; 429 with
+  `Retry-After`. The address comes from the proxy's header, read from the
+  right by the number of trusted hops, because anything to its left was
+  written by the client. IPv6 counts per /64. The Owner's recovery stop is
+  never limited.
+- **Change password** (Settings): the current password again, even with the
+  vault open; K_vault re-wrapped on the phone; every other sign-in ends; an
+  email says so. A wrong current password counts like a wrong sign-in and
+  answers 403, not 401, which the app would read as "signed out".
+- **Argon2id** (`hash-wasm`, 64 MiB, 2 passes) for new accounts. A PBKDF2
+  account moves at its next sign-in: the app makes the new keys while tier
+  two goes on and sends them only once the session is full, so someone with
+  the password alone cannot replace the server's wrapped key. The server
+  refuses settings below OWASP's floor, keeps only each algorithm's own
+  fields, and hands unknown emails a new account's settings.
+- **Your phones** (Settings): the phones signed in, with removal of a lost
+  one. Removal ends its sign-ins and deletes the server's half of its PIN
+  key at once. A phone cannot remove itself; that is sign out.
+- **An active recovery** shows as a banner on every screen, with a one-tap
+  stop, as well as the emailed link.
+- **Alerts** (`lib/push`): drivers `console` (default) and `native` (APNs
+  with an ES256 provider token over HTTP/2; FCM HTTP v1 with a
+  service-account token). Tokens are kept per enrolled phone, refreshed
+  after each unlock, and dropped when the service says they are gone or the
+  phone is removed. A recovery alerts every phone; the lock-screen text
+  names nothing in the vault. Email remains the channel that must arrive.
+- **Tests:** unit tests for each module, the HTTP/2 transport against a
+  local server, and the app's client end to end over the real API
+  (`tests/unit/client-hardening.test.ts`); Cucumber
+  `14_hardening.feature`. **Not verified:** real APNs/FCM delivery, and
+  alerts on a device.
+
 ---
 
 ## 2. Decided, not yet built
@@ -356,15 +392,14 @@ This replaces Beneficiary key pairs and fixes defects 1 and 3 in the README.
   Services ID and a redirect endpoint on the API host. Until then Android
   offers Google and Facebook.
 
-### Phase 5: hardening
+### Phase 5: hardening — built, see §1. Remaining:
 
-- Per-IP rate limits on login, codes, PINs and recovery. Today's limits are per
-  account and per device.
-- In Settings: a device list with remote removal, change password (re-wrapping
-  `K_vault`), and an "active recovery" banner with a cancel button.
-- Push notifications for the recovery hold and the release veto, alongside
-  email.
-- Raise the KDF to Argon2id via WebAssembly.
+- **Alerts for the release veto**, once the release state machine exists
+  (phase 3b): the hook is `notifyOwnerPhones` in `lib/auth/flows.ts`.
+- **Real APNs and FCM credentials**, and the device checklist for alerts:
+  turn alerts on, start a recovery from another phone, see the alert, tap it.
+- **The limits, the push tokens and the rest of the store** move to the
+  database with persistence; in memory they reset on restart.
 
 ### Alongside the phases
 

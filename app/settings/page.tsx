@@ -13,6 +13,9 @@ import { apiFetch, makeNewRecoveryKit, prepareToSetUpAgain, signOut, useAuth } f
 import { clearKitPending } from "@/lib/auth/kitReminder";
 import { RecoveryKit } from "@/components/auth/RecoveryKit";
 import { SetUpPhone } from "@/components/auth/SetUpPhone";
+import { ChangePassword } from "@/components/auth/ChangePassword";
+import { YourPhones } from "@/components/settings/YourPhones";
+import { PhoneAlertsSetting } from "@/components/settings/PhoneAlertsSetting";
 import { useBiometrics } from "@/lib/device/useBiometrics";
 import { ErrorText, messageOf } from "@/components/auth/Fields";
 
@@ -42,6 +45,7 @@ export default function SettingsPage() {
   const [kitError, setKitError] = useState("");
   const biometrics = useBiometrics();
   const [settingUpAgain, setSettingUpAgain] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const makeKit = async () => {
     setKitError("");
@@ -286,6 +290,13 @@ export default function SettingsPage() {
             )
           ) : null}
 
+          <PhoneAlertsSetting />
+
+          <h3 className="mb-1 mt-2 text-[16px] font-semibold text-[var(--text)]">Your phones</h3>
+          <div className="mb-6">
+            <YourPhones />
+          </div>
+
           {newKit ? (
             <RecoveryKit
               code={newKit}
@@ -307,6 +318,18 @@ export default function SettingsPage() {
               <ErrorText>{kitError}</ErrorText>
             </>
           )}
+
+          <div className="mt-6">
+            {changingPassword ? (
+              <div className="rounded-[16px] border border-[var(--border-strong)] p-4">
+                <ChangePassword />
+              </div>
+            ) : (
+              <Button variant="secondary" onClick={() => setChangingPassword(true)}>
+                Change my password
+              </Button>
+            )}
+          </div>
 
           <div className="mt-5">
             <Button variant="danger" onClick={() => void signOut()}>

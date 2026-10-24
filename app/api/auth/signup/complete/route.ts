@@ -1,5 +1,6 @@
 import { completeSignup } from "@/lib/auth/flows";
 import { readJson, respond } from "@/lib/auth/http";
+import { limitByAddress } from "@/lib/auth/rateLimit";
 
 /**
  * POST /api/auth/signup/complete — creates the account.
@@ -8,6 +9,8 @@ import { readJson, respond } from "@/lib/auth/http";
  * Never the password, never K_vault.
  */
 export async function POST(req: Request) {
+  const limited = limitByAddress(req, "signup");
+  if (limited) return limited;
   const body = await readJson(req);
   return respond(
     await completeSignup({

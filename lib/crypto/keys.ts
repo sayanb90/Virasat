@@ -1,7 +1,7 @@
 /**
  * Virasat - The key hierarchy (docs/authentication.md §2).
  *
- *   password ──PBKDF2(salt, 600k)──▶ K_root
+ *   password ──Argon2id(salt, 64 MiB, 2 passes)──▶ K_root   (older accounts: PBKDF2, 600k)
  *                                     ├─HKDF("auth")──▶ K_auth  → sent to the server as a login proof
  *                                     └─HKDF("wrap")──▶ K_wrap  → never leaves the device
  *
@@ -14,17 +14,15 @@
  * the browser, in the native web view, and under Node for the specs.
  */
 
+import { argon2id } from "hash-wasm";
 import { bufferToHex, hexToBuffer, toArrayBuffer } from "./argon2";
 
 const subtle = (): SubtleCrypto => globalThis.crypto.subtle;
 const enc = new TextEncoder();
 
-export const KDF_ITERATIONS = 600_000;
+import { ARGON2ID, kdfAlgorithm, type KdfParams } from "./kdfPolicy";
 
-export interface KdfParams {
-  saltHex: string;
-  iterations: number;
-}
+export { ARGON2ID, KDF_ITERATIONS, kdfAlgorithm, kdfNeedsUpgrade, type KdfAlgorithm, type KdfParams } from "./kdfPolicy";
 
 export interface WrappedKey {
   ivHex: string;
@@ -38,7 +36,7 @@ function randomBytes(n: number): Uint8Array {
 }
 
 export function newKdfParams(): KdfParams {
-  return { saltHex: bufferToHex(randomBytes(16)), iterations: KDF_ITERATIONS };
+  return { algorithm: "argon2id", saltHex: bufferToHex(randomBytes(16)), ...ARGON2ID };
 }
 
 async function hkdfBase(material: Uint8Array): Promise<CryptoKey> {
@@ -74,17 +72,33 @@ export interface AccountKeys {
   wrapKey: CryptoKey;
 }
 
-export async function deriveAccountKeys(password: string, kdf: KdfParams): Promise<AccountKeys> {
+async function rootKey(password: string, kdf: KdfParams): Promise<Uint8Array> {
+  const salt = hexToBuffer(kdf.saltHex);
+  if (kdfAlgorithm(kdf) === "argon2id") {
+    return argon2id({
+      password: enc.encode(password),
+      salt,
+      iterations: kdf.iterations,
+      memorySize: kdf.memoryKiB ?? ARGON2ID.memoryKiB,
+      parallelism: kdf.parallelism ?? ARGON2ID.parallelism,
+      hashLength: 32,
+      outputType: "binary",
+    });
+  }
   const pw = await subtle().importKey("raw", toArrayBuffer(enc.encode(password)), "PBKDF2", false, [
     "deriveBits",
   ]);
-  const root = new Uint8Array(
+  return new Uint8Array(
     await subtle().deriveBits(
-      { name: "PBKDF2", hash: "SHA-256", salt: toArrayBuffer(hexToBuffer(kdf.saltHex)), iterations: kdf.iterations },
+      { name: "PBKDF2", hash: "SHA-256", salt: toArrayBuffer(salt), iterations: kdf.iterations },
       pw,
       256
     )
   );
+}
+
+export async function deriveAccountKeys(password: string, kdf: KdfParams): Promise<AccountKeys> {
+  const root = await rootKey(password, kdf);
   const base = await hkdfBase(root);
   root.fill(0);
   return {

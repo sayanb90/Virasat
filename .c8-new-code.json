@@ -16,7 +16,15 @@
     "scripts/serve-static.mjs",
     "lib/auth/providers/native.ts",
     "lib/auth/providers/index.ts",
-    "lib/auth/socialSheets.ts"
+    "lib/auth/socialSheets.ts",
+    "lib/auth/rateLimit.ts",
+    "lib/crypto/kdfPolicy.ts",
+    "lib/push/index.ts",
+    "lib/push/types.ts",
+    "lib/push/alerts.ts",
+    "lib/push/drivers/console.ts",
+    "lib/push/drivers/apns.ts",
+    "lib/push/drivers/fcm.ts"
   ],
   "per-file": true,
   "lines": 100,

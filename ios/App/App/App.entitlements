@@ -4,6 +4,10 @@
 <dict>
 	<!-- Sign in with Apple (lib/auth/socialSheets.ts). The App ID must have
 	     the capability enabled in the Apple Developer portal. -->
+	<!-- Alerts on this phone (lib/push/alerts.ts). Xcode sets "production"
+	     when a build is exported for the App Store. -->
+	<key>aps-environment</key>
+	<string>development</string>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

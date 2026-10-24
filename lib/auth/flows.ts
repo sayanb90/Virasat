@@ -49,6 +49,8 @@ import type {
   UserRecord,
   WrappedKey,
 } from "./types";
+import { ARGON2ID, isAcceptableKdf, kdfNeedsUpgrade, pickKdf } from "../crypto/kdfPolicy";
+import { sendPush } from "../push";
 
 /* ---------------------------------------------------------------------- */
 /* Policy                                                                 */
@@ -73,7 +75,6 @@ export const POLICY = {
   recoveryAttempts: 5,
   recoveryHoldMs: 72 * HOUR,
   /** OWASP's floor for PBKDF2-HMAC-SHA256. */
-  minIterations: 600_000,
 } as const;
 
 /* ---------------------------------------------------------------------- */
@@ -141,13 +142,7 @@ function isWrappedKey(value: unknown): value is WrappedKey {
 }
 
 function isKdf(value: unknown): value is KdfParams {
-  const v = value as KdfParams;
-  return (
-    !!v &&
-    isHex(v.saltHex, 16) &&
-    Number.isInteger(v.iterations) &&
-    v.iterations >= POLICY.minIterations
-  );
+  return isAcceptableKdf(value);
 }
 
 function isPublicKeyJwk(value: unknown): value is PublicKeyJwk {
@@ -319,10 +314,8 @@ export function prelogin(rawEmail: unknown): Outcome<KdfParams> {
   if (!email) return fail(400, "Please enter a valid email address.");
   const user = store.userByEmail(email);
   if (user) return ok({ ...user.kdf });
-  return ok({
-    saltHex: serverHmac("fake-salt", email).slice(0, 32),
-    iterations: POLICY.minIterations,
-  });
+  // Exactly what a new account gets, so this answer says nothing.
+  return ok({ algorithm: "argon2id", saltHex: serverHmac("fake-salt", email).slice(0, 32), ...ARGON2ID });
 }
 
 /* ---------------------------------------------------------------------- */
@@ -424,7 +417,7 @@ export async function completeSignup(input: SignupInput): Promise<Outcome<Sessio
     name,
     email: ticket.email,
     emailVerifiedAt: now().toISOString(),
-    kdf: { saltHex: (input.kdf as KdfParams).saltHex, iterations: (input.kdf as KdfParams).iterations },
+    kdf: pickKdf(input.kdf as KdfParams),
     authHash: slowHash(input.authKeyHex as string),
     wrappedVaultKey: input.wrappedVaultKey as WrappedKey,
     recovery,
@@ -1055,6 +1048,13 @@ export async function beginKitRecovery(
       recoveryId: record.id,
     })
   );
+  // The phones too: of everyone, the Owner most needs to see this in time.
+  // Nothing on the lock screen says what Virasat holds.
+  await notifyOwnerPhones(user.id, {
+    title: "Is someone getting into your Virasat?",
+    body: "Someone has started using your Recovery Kit. Open Virasat to stop it if it is not you.",
+    data: { kind: "recovery-started" },
+  });
 
   return ok({ recoveryToken, releasableAt: record.releasableAt });
 }
@@ -1163,7 +1163,7 @@ export async function resetPassword(
     recovery = parseRecovery(input.recovery) ?? recovery;
   }
 
-  user.kdf = { ...(input.kdf as KdfParams) };
+  user.kdf = pickKdf(input.kdf as KdfParams);
   user.authHash = slowHash(input.authKeyHex as string);
   user.wrappedVaultKey = input.wrappedVaultKey as WrappedKey;
   user.recovery = recovery;
@@ -1176,6 +1176,178 @@ export async function resetPassword(
   session.purpose = "login";
   const accessToken = rotateAccess(session);
   return ok(grant(session, accessToken, issueRefresh(session)));
+}
+
+/* ---------------------------------------------------------------------- */
+/* Changing the password, and moving an account to Argon2id               */
+/* ---------------------------------------------------------------------- */
+
+interface NewPasswordInput {
+  /** Proof of the password in use now, from its current KDF settings. */
+  currentAuthKeyHex: unknown;
+  kdf: unknown;
+  authKeyHex: unknown;
+  /** K_vault, wrapped by the key from the new settings. */
+  wrappedVaultKey: unknown;
+}
+
+/** Checks both proofs and the new settings; the shared half of the two flows below. */
+function checkNewPassword(session: SessionRecord, input: NewPasswordInput): Outcome<UserRecord> {
+  if (stageOf(session) !== "full") return fail(403, "Please finish signing in first.");
+  const user = userFor(session);
+  if (!user) return fail(401, "Please sign in again.");
+  if (loginLocked(user.email)) return fail(429, "Too many tries. Please wait 15 minutes and try again.");
+  if (!isKdf(input.kdf)) return fail(400, "The key settings are not acceptable.");
+  if (!isHex(input.authKeyHex, 32)) return fail(400, "The sign-in proof is missing.");
+  if (!isWrappedKey(input.wrappedVaultKey)) return fail(400, "The vault key is missing.");
+  // A full session is not enough: someone at an unlocked phone must not be
+  // able to take the account. The current password is asked for again.
+  const current = isHex(input.currentAuthKeyHex, 32) ? (input.currentAuthKeyHex as string) : "";
+  if (!current || !slowVerify(current, user.authHash)) {
+    noteLoginFailure(user.email);
+    // 403, not 401: the session is fine, and the app treats 401 as signed out.
+    return fail(403, "That is not your current password.");
+  }
+  store.loginFailures.delete(user.email);
+  return ok(user);
+}
+
+/**
+ * A new password, from Settings. K_vault is re-wrapped on the phone; the
+ * server only swaps what it stores. Every other session ends, and the
+ * Owner is told by email in case it was not them.
+ */
+export async function changePassword(
+  session: SessionRecord,
+  input: NewPasswordInput
+): Promise<Outcome<{ changed: true }>> {
+  const checked = checkNewPassword(session, input);
+  if (!checked.ok) return checked;
+  const user = checked.data;
+  user.kdf = pickKdf(input.kdf as KdfParams);
+  user.authHash = slowHash(input.authKeyHex as string);
+  user.wrappedVaultKey = input.wrappedVaultKey as WrappedKey;
+  store.revokeAllFor(user.id, session.family);
+  await sendEmail(
+    passwordChanged(templateContext(), { email: user.email, name: user.name, sendId: randomHex(8) })
+  );
+  return ok({ changed: true });
+}
+
+/**
+ * The same password, with stronger settings: an account made with PBKDF2
+ * moves to Argon2id at its next sign-in, without the person seeing it.
+ *
+ * The server cannot tell whether the password stayed the same (it never
+ * sees one), so this is held tighter than it looks: it needs a full
+ * session and the current password, as a change does; it is accepted only
+ * from older settings and only to Argon2id at least as strong as a new
+ * account's, so it happens once per account; and sessions are left alone,
+ * because nothing the person knows has changed.
+ */
+export function upgradeKdf(session: SessionRecord, input: NewPasswordInput): Outcome<{ upgraded: true }> {
+  const user = userFor(session);
+  if (user && !kdfNeedsUpgrade(user.kdf)) return fail(409, "This account's key settings are already current.");
+  const next = input.kdf as KdfParams;
+  if (isKdf(next) && kdfNeedsUpgrade(next)) return fail(400, "The new key settings are not stronger.");
+  const checked = checkNewPassword(session, input);
+  if (!checked.ok) return checked;
+  checked.data.kdf = pickKdf(next);
+  checked.data.authHash = slowHash(input.authKeyHex as string);
+  checked.data.wrappedVaultKey = input.wrappedVaultKey as WrappedKey;
+  return ok({ upgraded: true });
+}
+
+/* ---------------------------------------------------------------------- */
+/* The phones signed in to an account                                     */
+/* ---------------------------------------------------------------------- */
+
+export interface DeviceSummary {
+  id: string;
+  name: string;
+  platform: DeviceRecord["platform"];
+  biometric: boolean;
+  createdAt: string;
+  lastSeenAt: string;
+  /** The phone asking. */
+  current: boolean;
+}
+
+/** Settings → Your phones. Removed phones are not listed. */
+export function listDevices(session: SessionRecord): Outcome<{ devices: DeviceSummary[] }> {
+  if (stageOf(session) !== "full") return fail(403, "Please finish signing in first.");
+  const devices = store
+    .devicesFor(session.userId)
+    .filter((d) => !d.revokedAt)
+    .sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt))
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      platform: d.platform,
+      biometric: !!d.biometricPublicKey,
+      createdAt: d.createdAt,
+      lastSeenAt: d.lastSeenAt,
+      current: d.id === session.deviceId,
+    }));
+  return ok({ devices });
+}
+
+/**
+ * A lost or sold phone, removed from another. Everything it was signed in
+ * with ends now, and the server forgets its half of the PIN key, so the
+ * copy of K_vault on that phone can no longer be opened with the PIN.
+ * (The Face ID copy needs the server's challenge too, which it will no
+ * longer get.) The phone asking cannot remove itself here: that is "Sign
+ * out", which keeps its set-up for next time.
+ */
+export function removeDevice(session: SessionRecord, deviceId: unknown): Outcome<{ removed: true }> {
+  if (stageOf(session) !== "full") return fail(403, "Please finish signing in first.");
+  const device = typeof deviceId === "string" ? store.devices.get(deviceId) : undefined;
+  if (!device || device.userId !== session.userId || device.revokedAt) return fail(404, "That phone is not signed in.");
+  if (device.id === session.deviceId) {
+    return fail(400, "This is the phone you are using. To take it off your account, sign out on it.");
+  }
+  device.revokedAt = now().toISOString();
+  device.serverShareHex = null;
+  store.revokeDevice(device.id);
+  store.pushTokens.delete(device.id);
+  return ok({ removed: true });
+}
+
+/* ---------------------------------------------------------------------- */
+/* Push notifications to the Owner's phones                               */
+/* ---------------------------------------------------------------------- */
+
+/** This phone's push token. Sent after unlock, and again whenever the OS renews it. */
+export function registerPushToken(session: SessionRecord, token: unknown): Outcome<{ registered: true }> {
+  if (stageOf(session) !== "full") return fail(403, "Please finish signing in first.");
+  const device = session.deviceId ? store.devices.get(session.deviceId) : undefined;
+  if (!device || device.revokedAt) return fail(409, "Set up this phone first.");
+  if (device.platform === "browser") return fail(400, "Alerts are sent only to the iOS and Android apps.");
+  if (typeof token !== "string" || token.length < 16 || token.length > 4096 || !/^[\w:.\-]+$/.test(token)) {
+    return fail(400, "That push token is not acceptable.");
+  }
+  store.pushTokens.set(device.id, { token, platform: device.platform, updatedAt: now().toISOString() });
+  return ok({ registered: true });
+}
+
+/**
+ * Tells every phone of this Owner. Never fails the caller: email carries the
+ * same news and is the channel that must arrive.
+ */
+export async function notifyOwnerPhones(
+  userId: string,
+  message: { title: string; body: string; data?: Record<string, string> }
+): Promise<number> {
+  let delivered = 0;
+  for (const device of store.devicesFor(userId)) {
+    const target = store.pushTokens.get(device.id);
+    if (!target || device.revokedAt) continue;
+    const result = await sendPush({ ...message, token: target.token, platform: target.platform });
+    if (result.ok) delivered++;
+    else if (result.gone) store.pushTokens.delete(device.id);
+  }
+  return delivered;
 }
 
 /* ---------------------------------------------------------------------- */

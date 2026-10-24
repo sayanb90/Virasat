@@ -7,7 +7,9 @@ import { DrawerNav } from "@/components/ui/DrawerNav";
 import { LocaleProvider } from "@/lib/locale/LocaleProvider";
 import { VaultSessionProvider } from "@/lib/vault/VaultSession";
 import { UnlockScreen } from "@/components/UnlockScreen";
-import { boot, useAuth, watchBackground } from "@/lib/auth/client";
+import { RecoveryBanner } from "@/components/RecoveryBanner";
+import { boot, sendPushToken, useAuth, watchBackground } from "@/lib/auth/client";
+import { phoneAlerts } from "@/lib/push/alerts";
 
 /** Routes that render without the app chrome, or outside the sign-in gate. */
 const BARE_PREFIX = "/welcome";
@@ -40,6 +42,15 @@ function Shell({ children }: { children: React.ReactNode }) {
     return watchBackground();
   }, []);
 
+  // After each unlock, in the app: the OS may have renewed the push token.
+  // This never asks for permission; Settings does, once.
+  useEffect(() => {
+    if (status !== "unlocked" || process.env.NEXT_PUBLIC_NATIVE !== "1") return;
+    void phoneAlerts(sendPushToken)
+      .then((a) => a?.refresh())
+      .catch(() => {});
+  }, [status]);
+
   // Nobody signed in on this phone: the welcome flow. Navigation belongs in
   // an effect rather than during render, and the guard keeps it to one push.
   useEffect(() => {
@@ -67,6 +78,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-4">
         {/* Every Owner screen, not just the note screens, needs tier two:
             settings and the safety timer are as sensitive as the notes. */}
+        {status === "unlocked" && !isPublic && <RecoveryBanner />}
         {status === "unlocked" || isPublic ? children : <UnlockScreen />}
       </main>
     </div>

@@ -98,9 +98,10 @@ Three changes from today, each for a reason:
    An unknown email gets a salt derived deterministically from the email and a
    server secret, so the endpoint does not reveal who has an account.
 
-Also raise the KDF cost: PBKDF2-SHA-256 at 100,000 rounds is below the current
-OWASP floor of 600,000. Argon2id via WebAssembly is better still, and the file
-is already named for it.
+Also raise the KDF cost. **Done in phase 5:** new accounts use Argon2id (64 MiB,
+2 passes, through `hash-wasm`), and an account made with PBKDF2 (600,000
+rounds) moves to Argon2id at its next sign-in, once the session is full
+(`lib/crypto/kdfPolicy.ts`, `flows.upgradeKdf`).
 
 The store is in-memory and demo-only today, so there is no migration. Every
 existing payload is throwaway.

@@ -30,6 +30,7 @@ import {
 import { BiometricsChangedError, webCryptoKeyOps, type KeyOps } from "../../lib/device/keyops";
 import type { SocialProvider, WrappedKey } from "../../lib/auth/types";
 import { FakeDevicePlugin } from "../support/fake_device_plugin";
+import { pushOutbox, resetPushOutbox } from "../../lib/push/drivers/console";
 import { createNativeBridgeWith, createNativeKeyOps } from "../../lib/device/native";
 import { derToRawEcdsaSignature } from "../../lib/device/der";
 
@@ -188,6 +189,7 @@ Given("a fresh sign-in service", function () {
   serverShare = undefined;
   keyOps = webCryptoKeyOps;
   hardware = null;
+  resetPushOutbox();
 });
 
 Given(/^"([^"]+)" (?:signs|has signed) up on a phone with password "([^"]+)"$/, async function (email: string, password: string) {
@@ -674,4 +676,139 @@ Then("the phone holds only the new keys", function () {
   const aliases = (s: DeviceState) => keysOf(s).map((k) => (k as { alias: string }).alias).sort();
   assert.deepStrictEqual([...fakeHardware().keys.keys()].sort(), aliases(phoneA!));
   assert.notDeepStrictEqual(aliases(replacedKeys!), aliases(phoneA!));
+});
+
+/* --- Hardening (phase 5) ----------------------------------------------- */
+
+let networkStatuses: number[] = [];
+let lastLimited: Response | null = null;
+
+async function loginFrom(address: string, n: number): Promise<Response> {
+  const { POST } = await import("../../app/api/auth/login/route");
+  return POST(
+    new Request("https://api.virasat.test/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": address },
+      body: JSON.stringify({ email: `stranger${n}@example.com`, authKeyHex: "00".repeat(32) }),
+    })
+  );
+}
+
+When("a script tries {int} sign-ins for different accounts from one network", async function (n: number) {
+  networkStatuses = [];
+  for (let i = 0; i < n; i++) {
+    const res = await loginFrom("203.0.113.9", i);
+    networkStatuses.push(res.status);
+    if (res.status === 429) lastLimited = res;
+  }
+});
+
+Then("the first {int} are answered and the {int}st is refused with status 429", function (answered: number, nth: number) {
+  assert.ok(networkStatuses.slice(0, answered).every((s) => s !== 429), JSON.stringify(networkStatuses));
+  assert.strictEqual(networkStatuses[nth - 1], 429);
+});
+
+Then("it is told how long to wait", async function () {
+  assert.ok(lastLimited);
+  assert.ok(Number(lastLimited!.headers.get("retry-after")) > 0);
+  assert.match((await lastLimited!.json()).error, /Please wait \d+ minutes?/);
+});
+
+Then("a sign-in from another network is still answered", async function () {
+  assert.notStrictEqual((await loginFrom("198.51.100.4", 0)).status, 429);
+});
+
+Then(/^her phones list shows (\d+) phones?(, with the new one marked as this phone)?$/, function (n: string, marked?: string) {
+  const listed = take(flows.listDevices(session()))!.devices;
+  assert.strictEqual(listed.length, Number(n), JSON.stringify(listed));
+  if (marked) assert.strictEqual(listed.find((d) => d.current)?.id, phoneB!.deviceId);
+});
+
+When("from the new phone she removes the first phone", function () {
+  take(flows.removeDevice(session(), phoneA!.deviceId));
+  assert.ok(last?.ok, JSON.stringify(last));
+});
+
+When("she removes this phone from its own phones list", function () {
+  take(flows.removeDevice(session(), phoneA!.deviceId));
+});
+
+Then("the first phone has no share of its PIN key on the server", function () {
+  assert.strictEqual(authStore.devices.get(phoneA!.deviceId)!.serverShareHex, null);
+});
+
+Then("signing in on the first phone needs a code from her email, as for a phone never seen", async function () {
+  await signIn(person.email, person.password, phoneA!.deviceId);
+  assert.deepStrictEqual([...session().needs], ["email-code"]);
+});
+
+When("she changes her password from {string} to {string}", async function (current: string, next: string) {
+  const { authKeyHex: currentAuthKeyHex } = await loginProof(current, kdfOf(person.email));
+  const fresh = await wrapWithPassword(next, person.vaultKeyBytes);
+  last = await flows.changePassword(session(), { currentAuthKeyHex, ...fresh.send });
+  if (last.ok) person.password = next;
+});
+
+Then(/^her account uses Argon2id with (\d+) MiB$/, function (mib: string) {
+  const kdf = authStore.userByEmail(person.email)!.kdf;
+  assert.strictEqual(kdf.algorithm, "argon2id");
+  assert.strictEqual(kdf.memoryKiB, Number(mib) * 1024);
+});
+
+Given("her account still uses the older PBKDF2 settings", async function () {
+  const kdf = { saltHex: "ab".repeat(16), iterations: 600_000 };
+  const keys = await loginProof(person.password, kdf);
+  const user = authStore.userByEmail(person.email)!;
+  user.kdf = kdf;
+  user.authHash = (await import("../../lib/auth/secrets")).slowHash(keys.authKeyHex);
+  user.wrappedVaultKey = await (await import("../../lib/crypto/keys")).wrapBytes(person.vaultKeyBytes, keys.wrapKey);
+});
+
+Then("her account still uses PBKDF2", function () {
+  assert.strictEqual(authStore.userByEmail(person.email)!.kdf.algorithm, undefined);
+});
+
+/** What the app sends after a PBKDF2 sign-in (lib/auth/client.ts), with these settings. */
+async function upgradeFrom(password: string, vaultKeyBytes: Uint8Array) {
+  const { authKeyHex: currentAuthKeyHex } = await loginProof(password, kdfOf(person.email));
+  const fresh = await wrapWithPassword(password, vaultKeyBytes);
+  return flows.upgradeKdf(session(), { currentAuthKeyHex, ...fresh.send });
+}
+
+When("the app moves her account to the new settings", async function () {
+  last = await upgradeFrom(person.password, person.vaultKeyBytes);
+  assert.ok(last.ok, JSON.stringify(last));
+});
+
+When("someone signs in with her password on a phone of their own", async function () {
+  onNewPhone = true;
+  await signIn(person.email, person.password, undefined);
+});
+
+When("they try to move her account to settings of their choosing", async function () {
+  // Their own vault key: if this were accepted, hers would be lost.
+  last = await upgradeFrom(person.password, crypto.getRandomValues(new Uint8Array(32)));
+});
+
+Then("no {string} email was sent", function (subject: string) {
+  assert.ok(!listOutbox().some((e) => e.subject === subject), `"${subject}" was sent`);
+});
+
+Given("her phone has alerts turned on", function () {
+  take(flows.registerPushToken(session(), "a1b2c3d4e5f6a1b2c3d4e5f6"));
+  assert.ok(last?.ok, JSON.stringify(last));
+});
+
+Then("her phone was alerted once", function () {
+  assert.strictEqual(pushOutbox.length, 1);
+  assert.strictEqual(pushOutbox[0].token, "a1b2c3d4e5f6a1b2c3d4e5f6");
+});
+
+Then("the alert names no person, address or note", function () {
+  const shown = `${pushOutbox[0].title} ${pushOutbox[0].body}`;
+  assert.doesNotMatch(shown, new RegExp(`${nameFor(person.email)}|${person.email}|@|note`, "i"));
+});
+
+Then("no phone was alerted", function () {
+  assert.strictEqual(pushOutbox.length, 0);
 });

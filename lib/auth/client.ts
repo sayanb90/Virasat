@@ -40,6 +40,7 @@ import { BiometricsChangedError } from "@/lib/device/keyops";
 import { mintStubToken } from "@/lib/auth/providers/stub";
 import { socialSheets, type SocialSheets } from "@/lib/auth/socialSheets";
 import type { KdfParams, WrappedKey } from "@/lib/crypto/keys";
+import { kdfNeedsUpgrade, pickKdf } from "@/lib/crypto/kdfPolicy";
 
 /* ---------------------------------------------------------------------- */
 /* State                                                                  */
@@ -187,6 +188,25 @@ async function openVault(bytes: Uint8Array): Promise<void> {
   const key = await importVaultKey(bytes);
   set({ status: "unlocked", needs: [], vaultKey: key, vaultKeyHex: bufferToHex(bytes) });
   pendingVaultBytes = null;
+  if (pendingUpgrade) await sendKdfUpgrade();
+}
+
+/**
+ * An account made with PBKDF2 moves to Argon2id at sign-in. The new keys
+ * are made from the password while tier two goes on, and sent only once
+ * the session is full: the server will not take them earlier, so someone
+ * with the password but not the phone cannot replace the vault key.
+ */
+let pendingUpgrade: Promise<{ currentAuthKeyHex: string; kdf: KdfParams; authKeyHex: string; wrappedVaultKey: WrappedKey }> | null = null;
+
+async function sendKdfUpgrade(): Promise<void> {
+  const prepared = pendingUpgrade;
+  pendingUpgrade = null;
+  try {
+    await call("/api/auth/password/upgrade", await prepared);
+  } catch {
+    /* the old settings still work; the next sign-in tries again */
+  }
 }
 
 /** Status after a grant, for screens that do not open the vault themselves. */
@@ -412,8 +432,8 @@ export function prepareToSetUpAgain(): void {
 /* ---------------------------------------------------------------------- */
 
 async function prelogin(email: string): Promise<KdfParams> {
-  const r = await call<KdfParams>("/api/auth/prelogin", { email });
-  return { saltHex: r.saltHex, iterations: r.iterations };
+  // Only the KDF's own fields: the reply also carries `success`.
+  return pickKdf(await call<KdfParams>("/api/auth/prelogin", { email }));
 }
 
 /** Email and password. Next is Face ID / PIN, or a code on a new phone. */
@@ -427,8 +447,30 @@ export async function signInWithPassword(email: string, password: string, linkTi
     { email, authKeyHex, deviceId: usable ? device.deviceId : undefined, linkTicket }
   );
   pendingVaultBytes = await openWithPassword(password, kdf, result.wrappedVaultKey);
+  if (kdfNeedsUpgrade(kdf)) {
+    const vaultKeyBytes = pendingVaultBytes;
+    pendingUpgrade = wrapWithPassword(password, vaultKeyBytes).then((next) => ({
+      currentAuthKeyHex: authKeyHex,
+      ...next.send,
+    }));
+    // A failure here only means no upgrade this time.
+    pendingUpgrade.catch(() => (pendingUpgrade = null));
+  }
   await applyGrant(result);
   set({ user: result.user, needs: result.needs, status: "locked" });
+}
+
+/**
+ * A new password, from Settings. The vault key is open, so it is wrapped
+ * again here with keys from the new password; the server sees neither.
+ * Every other phone and session is signed out.
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  if (state.status !== "unlocked" || !state.vaultKeyHex || !state.user) throw new Error("Please unlock Virasat first.");
+  const kdf = await prelogin(state.user.email);
+  const { authKeyHex: currentAuthKeyHex } = await loginProof(currentPassword, kdf);
+  const next = await wrapWithPassword(newPassword, hexToBuffer(state.vaultKeyHex));
+  await call("/api/auth/password/change", { currentAuthKeyHex, ...next.send });
 }
 
 export async function startSignUp(email: string): Promise<void> {
@@ -643,4 +685,42 @@ export async function signOut(): Promise<void> {
   clearSession();
   await deviceBridge().saveRefreshToken(null);
   set({ status: "signed-out", needs: [], user: null, vaultKey: null, vaultKeyHex: "" });
+}
+
+/* ---------------------------------------------------------------------- */
+/* The phones on this account, and a recovery someone else started        */
+/* ---------------------------------------------------------------------- */
+
+export interface PhoneSummary {
+  id: string;
+  name: string;
+  platform: "ios" | "android" | "browser";
+  biometric: boolean;
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+}
+
+export async function listPhones(): Promise<PhoneSummary[]> {
+  return (await call<{ devices: PhoneSummary[] }>("/api/auth/devices", undefined, "GET")).devices;
+}
+
+/** Takes a lost or sold phone off the account. Not this phone: that is sign out. */
+export async function removePhone(deviceId: string): Promise<void> {
+  await call("/api/auth/devices", { deviceId }, "DELETE");
+}
+
+/** Whether someone is using the Recovery Kit to get into this account. */
+export async function recoveryInProgress(): Promise<boolean> {
+  return (await call<{ recoveryInProgress: boolean }>("/api/auth/session", undefined, "GET")).recoveryInProgress;
+}
+
+/** The Owner's veto, from inside the app. Resolves whether there was one to stop. */
+export async function stopRecovery(): Promise<boolean> {
+  return (await call<{ cancelled: boolean }>("/api/auth/recovery/kit/cancel", {})).cancelled;
+}
+
+/** This phone's push token, for alerts (lib/push/alerts.ts). */
+export async function sendPushToken(token: string): Promise<void> {
+  await call("/api/push/register", { token });
 }

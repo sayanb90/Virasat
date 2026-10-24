@@ -21,8 +21,11 @@ import type {
   SignupTicket,
   UserRecord,
 } from "./types";
+import { resetRateLimitsForTesting } from "./rateLimit";
 
 class AuthStore {
+  /** device id → where to push to it. One token per phone, replaced on refresh. */
+  pushTokens = new Map<string, { token: string; platform: "ios" | "android"; updatedAt: string }>();
   users = new Map<string, UserRecord>();
   /** email → user id */
   usersByEmail = new Map<string, string>();
@@ -130,6 +133,8 @@ class AuthStore {
     this.recoveryFailures.clear();
     this.lastCodesForTesting.clear();
     this.lastCancelTokensForTesting.clear();
+    this.pushTokens.clear();
+    resetRateLimitsForTesting();
   }
 }
 
