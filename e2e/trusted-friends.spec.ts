@@ -1,3 +1,4 @@
+import { inviteAcceptPath } from "../lib/routes";
 import { test, expect } from "./support/fixtures";
 import { gotoUnlocked, resetServer, signUp, unlockIfNeeded } from "./support/app";
 
@@ -28,7 +29,7 @@ test.describe("Trusted Friends", () => {
     const { friends } = await (await api.get("/api/trusted-friends")).json();
     const friendContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const friendPage = await friendContext.newPage();
-    await friendPage.goto(`/trusted-friends/accept/${friends[0].inviteToken}`);
+    await friendPage.goto(inviteAcceptPath(friends[0].inviteToken));
     await friendPage.getByRole("button", { name: /Yes, I will help/i }).click();
     await expect(friendPage.getByRole("heading", { name: "Thank you" })).toBeVisible();
     await friendContext.close();
@@ -54,7 +55,7 @@ test.describe("Trusted Friends", () => {
   });
 
   test("an invalid invite link is refused rather than silently accepted", async ({ page }) => {
-    await page.goto("/trusted-friends/accept/not-a-real-token");
+    await page.goto(inviteAcceptPath("not-a-real-token"));
     await page.getByRole("button", { name: /Yes, I will help/i }).click();
 
     await expect(page.getByText(/not valid, or it has been withdrawn/i)).toBeVisible();

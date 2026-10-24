@@ -24,6 +24,7 @@
  * what to do, in that order.
  */
 
+import { inviteAcceptPath } from "../routes";
 import type { EmailMessage } from "./types";
 
 export interface TemplateContext {
@@ -66,7 +67,7 @@ export function trustedFriendInvite(
   ctx: TemplateContext,
   args: { friendName: string; friendEmail: string; ownerName: string; inviteToken: string }
 ): EmailMessage {
-  const url = link(ctx, `/trusted-friends/accept/${encodeURIComponent(args.inviteToken)}`);
+  const url = link(ctx, inviteAcceptPath(args.inviteToken));
   const subject = `${args.ownerName} has asked you to be a Trusted Friend`;
 
   const paragraphs = [

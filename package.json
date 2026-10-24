@@ -10,7 +10,11 @@
     "test": "cucumber-js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:all": "npm run test && npm run test:e2e"
+    "test:all": "npm run test && npm run test:e2e",
+    "build:app": "BUILD_TARGET=app next build",
+    "build:api": "BUILD_TARGET=api next build",
+    "build:e2e-split": "BUILD_TARGET=app NEXT_PUBLIC_API_BASE=http://127.0.0.1:3399 next build && BUILD_TARGET=api next build",
+    "test:e2e:split": "E2E_MODE=split playwright test"
   },
   "dependencies": {
     "@types/canvas-confetti": "^1.9.0",

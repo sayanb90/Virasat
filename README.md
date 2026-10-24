@@ -243,9 +243,9 @@ feature can be switched off per account.
 | `/notes` | The category tree |
 | `/notes/[subcategoryId]` | Notes within a subcategory |
 | `/notes/[subcategoryId]/new` | Write a note |
-| `/notes/[subcategoryId]/[noteId]` | Read / edit a note |
+| `/notes/view?sub=…&id=…` | Read / edit a note (the id is in the query: the app is a static export) |
 | `/beneficiaries` | Loved ones and heirs |
-| `/trusted-friends`, `/trusted-friends/accept/[token]` | Invite and accept |
+| `/trusted-friends`, `/trusted-friends/accept?token=…` | Invite and accept |
 | `/heartbeat` | Cycle detail and the escalation simulator |
 | `/backup` | Export, restore, delete everything |
 | `/settings` | Country, interval, vacation mode, security log |
@@ -504,13 +504,17 @@ Two suites, deliberately split by what they are good at.
 
 ```bash
 npm test          # Cucumber — logic, crypto, taxonomy, escalation arithmetic
-npm run test:e2e  # Playwright — real browser, real flows
+npm run test:e2e  # Playwright — app and API on one origin (development)
 npm run test:e2e:ui  # Playwright, interactive
 npm run test:all  # both
+
+npm run build:e2e-split && npm run test:e2e:split   # the shipping topology
 ```
 
 Both run on every pull request (`.github/workflows/ci.yml`, no branch filter, so
-stacked PRs are gated too).
+stacked PRs are gated too). **CI runs Playwright in the split topology** — the
+static export on one origin, the API on another, exactly as the native app
+talks to it — so every PR is checked against the two artifacts that ship.
 
 **Cucumber (95 scenarios)** covers things with no UI: AES-GCM round trips and key
 derivation, the note payload codec with attachments (a real 1.4MB buffer),
@@ -703,12 +707,35 @@ npm run dev          # http://localhost:3000
 Next 16 allows only one dev server per directory. If a second refuses to start,
 kill the first by the PID it printed.
 
-### Production
+### Production: two builds from one repo
+
+The native app ships its UI inside the bundle, so the UI and the API are
+deployed separately (`next.config.ts`, `BUILD_TARGET`):
 
 ```bash
-npm run build
-npm run start
+NEXT_PUBLIC_API_BASE=https://api.yourdomain.com npm run build:app   # → out/
+npm run build:api && npm run start                                  # the API host
 ```
+
+- **The app** is a static export. It has no server, so it has no route
+  handlers and no proxy: limiting routing files to `.tsx` for this build is
+  what removes them. **Every routing file outside `app/api/` must stay
+  `.tsx`**, or it silently drops out of the app build.
+- **The API host** serves `/api`, answers CORS for the native app's origins
+  only (`capacitor://localhost`, `https://localhost`), and 404s the app's
+  screens. It also serves the few pages a browser opens from an **email
+  link** — the Trusted Friend invitation and the Owner's recovery veto —
+  because the person opening them has no app, or is on a desktop. Set
+  `APP_URL` to the API host so those links point there.
+- Sessions are bearer tokens, not cookies, so the cross-origin split needs no
+  credentialed CORS — and a foreign site has no session to ride on.
+- Runtime values never sit in a path: the export can only contain paths known
+  at build time. Note ids and invite tokens travel in the query string
+  (`lib/routes.ts`); all 48 subcategory pages, from every locale pack, are
+  generated.
+
+For local development nothing changes: `npm run dev` serves both on one
+origin.
 
 ### Device harness
 

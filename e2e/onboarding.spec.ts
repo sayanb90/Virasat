@@ -1,3 +1,4 @@
+import { inviteAcceptPath } from "../lib/routes";
 import { test, expect } from "./support/fixtures";
 import { OWNER, gotoUnlocked, resetServer, signUp } from "./support/app";
 
@@ -63,9 +64,9 @@ test.describe("Onboarding", () => {
 
     const theirs = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const theirPage = await theirs.newPage();
-    await theirPage.goto(`/trusted-friends/accept/${friend.inviteToken}`);
+    await theirPage.goto(inviteAcceptPath(friend.inviteToken));
 
-    await expect(theirPage).toHaveURL(/\/trusted-friends\/accept\//);
+    await expect(theirPage).toHaveURL(/\/trusted-friends\/accept\?token=/);
     await expect(theirPage.getByRole("heading", { name: /asked to help/i })).toBeVisible();
     await theirs.close();
   });

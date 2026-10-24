@@ -1,10 +1,5 @@
 import { test, expect } from "./support/fixtures";
-import {
-  NOMINEE_NOTE,
-  gotoUnlocked,
-  resetServer,
-  signUp,
-} from "./support/app";
+import { NOMINEE_NOTE, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
 
 /** A small PNG, enough to prove a binary survives the encryption round trip. */
 const PNG = Buffer.from(
@@ -41,7 +36,7 @@ test.describe("Attachments", () => {
     await page.getByLabel("Title").fill("Bank locker");
     await page.getByLabel("Add note").fill("Second key is with Meera.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
 
     // Present on the note, and the text still decrypts alongside it.
     await expect(page.getByText("locker-key-photo.png")).toBeVisible();
@@ -63,7 +58,7 @@ test.describe("Attachments", () => {
     await page.getByLabel("Title").fill("Passport");
     await page.getByLabel("Add note").fill("In the green folder.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
 
     const { items } = await (await api.get("/api/vault")).json();
     const stored = JSON.stringify(items);
@@ -83,7 +78,7 @@ test.describe("Attachments", () => {
     await page.getByLabel("Title").fill("Policy papers");
     await page.getByLabel("Add note").fill("Keep this text.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
     await expect(page.getByText("old-scan.png")).toBeVisible();
 
     await page.getByRole("button", { name: "Edit", exact: true }).click();

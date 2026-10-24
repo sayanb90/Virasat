@@ -1,3 +1,4 @@
+import { noteHref } from "../lib/routes";
 import { test, expect } from "./support/fixtures";
 import { NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, signUp, unlockIfNeeded } from "./support/app";
 
@@ -59,7 +60,7 @@ test.describe("Country and vocabulary", () => {
 
     await chooseCountry(page, "International");
 
-    await gotoUnlocked(page, `/notes/${NOMINEE_NOTE.subcategoryId}/${noteId}`);
+    await gotoUnlocked(page, noteHref(NOMINEE_NOTE.subcategoryId, noteId));
     await expect(page.getByRole("heading", { name: NOMINEE_NOTE.title })).toBeVisible();
     await expect(page.getByText(/Nominee is Meera/)).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Uncategorised");

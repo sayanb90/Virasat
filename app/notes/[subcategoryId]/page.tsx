@@ -1,5 +1,6 @@
 "use client";
 
+import { noteHref } from "@/lib/routes";
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -102,7 +103,7 @@ export default function SubcategoryNotesPage({
             {orphanNotes.map((note) => (
               <li key={note.id}>
                 <Link
-                  href={`/notes/${note.subcategoryId}/${note.id}`}
+                  href={noteHref(note.subcategoryId, note.id)}
                   className="block rounded-[16px] border border-[var(--border)] bg-white p-4 transition-colors hover:border-[var(--action-border)] hover:bg-[var(--action-soft)]"
                 >
                   <p className="text-[19px] font-bold leading-snug text-[var(--text)]">
@@ -166,7 +167,7 @@ export default function SubcategoryNotesPage({
             return (
               <li key={note.id}>
                 <Link
-                  href={`/notes/${note.subcategoryId}/${note.id}`}
+                  href={noteHref(note.subcategoryId, note.id)}
                   className="block rounded-[16px] border border-[var(--border)] bg-white p-4 transition-colors hover:border-[var(--action-border)] hover:bg-[var(--action-soft)]"
                 >
                   <p className="text-[19px] font-bold leading-snug text-[var(--text)]">

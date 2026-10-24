@@ -13,6 +13,7 @@
  *                               └── locked ◀──────────┘  cold start, 5 minutes away, "Lock now"
  */
 
+import { apiUrl } from "@/lib/config";
 import { useSyncExternalStore } from "react";
 import { bufferToHex } from "@/lib/crypto/argon2";
 import { importVaultKey } from "@/lib/crypto/keys";
@@ -127,7 +128,7 @@ export class ApiError extends Error {
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  const res = await fetch(input, { ...init, headers });
+  const res = await fetch(apiUrl(input), { ...init, headers });
   if (res.status === 401 && accessToken && state.status === "unlocked") {
     // The session ended under us (signed out elsewhere, password changed).
     clearSession();

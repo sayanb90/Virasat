@@ -186,7 +186,7 @@ Then("the message should avoid the words {string}", function (list: string) {
 
 Then("the message should contain a link to the invite acceptance page", function () {
   assert.ok(
-    message.text.includes("https://virasat.test/trusted-friends/accept/tok_abc123"),
+    message.text.includes("https://virasat.test/trusted-friends/accept?token=tok_abc123"),
     `The invite had no acceptance link. Text was:\n${message.text}`
   );
 });

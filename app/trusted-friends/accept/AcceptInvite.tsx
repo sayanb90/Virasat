@@ -1,24 +1,24 @@
 "use client";
 
-import React, { use, useState } from "react";
+import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/auth/client";
 import { CircleCheck, HeartHandshake } from "lucide-react";
 import { Eyebrow, PageTitle } from "@/components/ui/Page";
 import { Button, ButtonLink } from "@/components/ui/Button";
 
 /** Where an invited person lands when they open their invitation link. */
-export default function AcceptInvitePage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
-  const { token } = use(params);
+export default function AcceptInvite() {
+  // The token travels in the query string: the app is a static export, so a
+  // value minted at runtime cannot be part of the path.
+  const token = useSearchParams().get("token") ?? "";
   const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
   const [error, setError] = useState("");
 
   const accept = async () => {
     setState("working");
     try {
-      const res = await fetch("/api/trusted-friends/accept", {
+      const res = await apiFetch("/api/trusted-friends/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),

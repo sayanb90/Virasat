@@ -7,6 +7,23 @@ import {
 } from "@playwright/test";
 import { buildNewAccount, buildRecoveryKit, loginProof } from "../../lib/crypto/account";
 
+/**
+ * Where /api lives. In the split topology that is not the page's origin, so
+ * helpers use absolute URLs and work with any request context — including
+ * `page.request`, which is bound to the page's origin.
+ */
+export const API_ORIGIN = process.env.E2E_API_ORIGIN ?? "";
+
+/**
+ * Where a note opens once saved: /notes/view?sub=…&id=note-…
+ *
+ * The app is a static export, so the note id travels in the query string
+ * rather than the path. Specs wait on this instead of spelling the URL.
+ */
+export function savedNoteUrl(subcategoryId: string): RegExp {
+  return new RegExp(`/notes/view\\?sub=${escapeRe(subcategoryId)}&id=note-`);
+}
+
 /** The account most specs act as. The ladder specs expect mail to this address. */
 export const OWNER = {
   name: "Test Owner",
@@ -23,13 +40,13 @@ export type Owner = typeof OWNER;
  * up in the next.
  */
 export async function resetServer(request: APIRequestContext): Promise<void> {
-  const res = await request.post("/api/test/reset");
+  const res = await request.post(`${API_ORIGIN}/api/test/reset`);
   expect(res.ok(), "test reset route should be reachable (VIRASAT_E2E=1)").toBeTruthy();
 }
 
 /** The last code emailed to an address. Tests cannot read an inbox. */
 export async function lastCode(request: APIRequestContext, email: string): Promise<string> {
-  const res = await request.get(`/api/test/codes?email=${encodeURIComponent(email)}`);
+  const res = await request.get(`${API_ORIGIN}/api/test/codes?email=${encodeURIComponent(email)}`);
   const { code } = await res.json();
   expect(code, `a code should have been emailed to ${email}`).toBeTruthy();
   return code as string;
@@ -200,8 +217,11 @@ export async function createNote(page: Page, note: NewNote): Promise<string> {
   await page.getByLabel("Add note").fill(note.body);
   await page.getByRole("button", { name: "Save", exact: true }).click();
 
-  await page.waitForURL(new RegExp(`${escapeRe(note.subcategoryId)}/note-`));
-  return page.url().split("/").pop() as string;
+  await page.waitForURL(savedNoteUrl(note.subcategoryId));
+  // The id is in the query string, not the last path segment.
+  const id = new URL(page.url()).searchParams.get("id");
+  expect(id, `the saved note's URL should carry its id: ${page.url()}`).toBeTruthy();
+  return id as string;
 }
 
 export function escapeRe(value: string): string {

@@ -1,13 +1,5 @@
 import { test, expect } from "./support/fixtures";
-import {
-  FIRST_GROUP_LABEL,
-  NOMINEE_NOTE,
-  createNote,
-  resetServer,
-  signInApi,
-  signUp,
-  type Owner,
-} from "./support/app";
+import { API_ORIGIN, FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, resetServer, signInApi, signUp, type Owner } from "./support/app";
 
 const SECRET_BODY = "Nominee is Meera. Signed form DA-1 kept in the almirah.";
 
@@ -24,7 +16,7 @@ test.describe("Account boundary", () => {
     await signUp(page);
   });
 
-  test("another account cannot see or read this account's notes", async ({ page, browser, baseURL }) => {
+  test("another account cannot see or read this account's notes", async ({ page, browser }) => {
     await createNote(page, NOMINEE_NOTE);
 
     // A different person, a different phone, their own account.
@@ -38,7 +30,7 @@ test.describe("Account boundary", () => {
     await expect(theirPage.locator("body")).not.toContainText("almirah");
 
     // And not through the API either: their vault is their own.
-    const theirApi = await signInApi(baseURL!, INTRUDER);
+    const theirApi = await signInApi(API_ORIGIN, INTRUDER);
     const { items } = await (await theirApi.get("/api/vault")).json();
     expect(items).toHaveLength(0);
     await theirApi.dispose();

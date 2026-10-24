@@ -1,5 +1,6 @@
 "use client";
 
+import { noteHref } from "@/lib/routes";
 import React, { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/lib/locale/LocaleProvider";
@@ -51,7 +52,7 @@ export default function NewNotePage({
       vaultKey={vaultKey}
       beneficiaries={beneficiaries}
       onCancel={() => router.back()}
-      onSaved={(id) => router.replace(`/notes/${subcategoryId}/${id}`)}
+      onSaved={(id) => router.replace(noteHref(subcategoryId, id))}
     />
   );
 }

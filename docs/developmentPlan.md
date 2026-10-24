@@ -112,6 +112,43 @@ not built).
   biometric key's signature. The stub social provider is refused in a
   production build unless `VIRASAT_E2E=1`.
 
+### On `authenticationEntitlements`: phase 2, the static export and the API split
+
+- **Two builds from one repo**, chosen by `BUILD_TARGET` in `next.config.ts`:
+  - `app`: a static export to `out/`. `pageExtensions: ["tsx"]` removes every
+    route handler (`route.ts`) and the proxy (`proxy.ts`) from this build
+    without moving a file. Every routing file outside `app/api/` is `.tsx`
+    and must stay so.
+  - `api`: the same app as the API host. `proxy.ts` answers CORS and 404s the
+    app's screens.
+- **The four dynamic routes** are static now:
+  - `notes/[subcategoryId]` and its `new` page: `generateStaticParams` in the
+    segment's layout, over every subcategory in **every** locale pack (48), so
+    a note filed under an India-only id stays reachable after a country
+    switch.
+  - A note is `/notes/view?sub=…&id=…`. `sub` is carried as well as `id`
+    because the breadcrumb is drawn before the note loads.
+  - An invitation is `/trusted-friends/accept?token=…`.
+  - Built in one place: `lib/routes.ts`.
+- `app/page.tsx` redirects on the client.
+- **`apiFetch` takes its base from `NEXT_PUBLIC_API_BASE`** (`lib/config.ts`).
+- **CORS** allows exactly `capacitor://localhost` and `https://localhost`,
+  plus `CORS_ALLOWED_ORIGINS` for the test harness only. Sessions are bearer
+  tokens, so no credentialed CORS is needed. A foreign origin's preflight
+  gets 403.
+- **The API host also serves the email-link pages**: the Trusted Friend
+  invitation and the recovery veto (`/welcome/recover/cancel`). The plan only
+  named the future Witness confirm page, but these two have the same problem:
+  the person opening them has no app. They are listed in `proxy.ts`; add the
+  confirm page there in phase 3b.
+- **Fixed on the way:** the invite link shown in the app was built from
+  `window.location.origin`, which inside the native app is
+  `capacitor://localhost`. It now points at the web host (`publicWebUrl`).
+- **Tests:** `npm run build:e2e-split && npm run test:e2e:split` runs the
+  whole Playwright suite against the static export on one origin and the API
+  on another (`scripts/serve-static.mjs`, no new dependency). CI now runs this
+  topology. Both topologies pass: 84 passed, 2 skipped on purpose.
+
 ---
 
 ## 2. Decided, not yet built
@@ -135,25 +172,7 @@ Settled in review on 24 October 2026. Details are in the linked sections.
 
 Each phase should leave both test suites green and be reviewable on its own.
 
-### Phase 2: static export and the API split
-
-The native app ships its UI inside the bundle, so the app has to build as a
-static export, with `/api` deployed separately.
-
-- Turn the four dynamic routes into static ones:
-  - `notes/[subcategoryId]` gets `generateStaticParams`, since the taxonomy is
-    fixed.
-  - Note ids and invite tokens move to query strings
-    (`/notes/view?id=`, `/trusted-friends/accept?token=`).
-- `app/page.tsx` redirects on the client, not with server `redirect()`.
-- Two builds from one repo: the **app** (`output: "export"`) and the **API**
-  (the same Next app, serving `/api` only). CORS allows exactly
-  `capacitor://localhost` and `https://localhost`.
-- `apiFetch` takes an API base URL from configuration.
-- The one public page Witnesses and Beneficiaries tap ("Confirm that Ramesh
-  has passed away") is served by the API host.
-- **Done when:** Playwright runs against the static build talking to a local
-  API.
+### ~~Phase 2: static export and the API split~~ — done, see §1.
 
 ### Phase 3: the Capacitor shell
 
@@ -171,6 +190,11 @@ static export, with `/api` deployed separately.
   IndexedDB.
 - Hide the app's contents in the app-switcher snapshot.
 - Exclude the browser bridge from the native build.
+- **Emails that link to app screens.** The check-in ladder and other Owner
+  emails link to `/heartbeat`, `/settings` and `/claim`. The API host 404s
+  app screens, so those links need **universal links (iOS) and app links
+  (Android)** that open the installed app, served from the API host's
+  `/.well-known/`. Until then they reach a 404.
 - **Done when:** sign-up, unlock, the PIN and both recovery paths pass in the
   iOS Simulator (*Features → Face ID*) and the Android emulator.
 

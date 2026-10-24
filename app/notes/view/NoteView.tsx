@@ -1,7 +1,7 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, Paperclip, Trash2, UserRound } from "lucide-react";
 import { useLocale } from "@/lib/locale/LocaleProvider";
 import { describeSubcategory, locateSubcategory } from "@/lib/taxonomy";
@@ -14,12 +14,14 @@ import { BottomBar } from "@/components/ui/BottomBar";
 import { decryptNoteBody, deleteNote, fetchBeneficiaries, fetchNotes } from "@/lib/vault/notes";
 import type { BeneficiaryRecord, VaultItemRecord } from "@/lib/state/mockDatabase";
 
-export default function NotePage({
-  params,
-}: {
-  params: Promise<{ subcategoryId: string; noteId: string }>;
-}) {
-  const { subcategoryId, noteId } = use(params);
+export default function NoteView() {
+  // Both travel in the query string: note ids are minted at runtime, and the
+  // app is a static export. `sub` is carried as well as `id` because the
+  // breadcrumb and back link are drawn before the note loads — and still have
+  // to make sense if it turns out not to exist.
+  const params = useSearchParams();
+  const subcategoryId = params.get("sub") ?? "";
+  const noteId = params.get("id") ?? "";
   const router = useRouter();
   const { country, taxonomy, ready } = useLocale();
   const { vaultKey } = useVaultSession();

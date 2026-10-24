@@ -1,5 +1,7 @@
 "use client";
 
+import { inviteAcceptPath } from "@/lib/routes";
+import { publicWebUrl } from "@/lib/config";
 import React, { useCallback, useEffect, useState } from "react";
 import { Check, Copy, Plus, Trash2, UserPlus } from "lucide-react";
 import { Eyebrow, PageTitle, EmptyState } from "@/components/ui/Page";
@@ -72,7 +74,7 @@ export default function TrustedFriendsPage() {
   };
 
   const copyLink = async (friend: TrustedFriendRecord) => {
-    const link = `${window.location.origin}/trusted-friends/accept/${friend.inviteToken}`;
+    const link = publicWebUrl(inviteAcceptPath(friend.inviteToken));
     try {
       await navigator.clipboard.writeText(link);
       setCopiedId(friend.id);

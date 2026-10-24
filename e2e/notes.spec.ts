@@ -1,5 +1,5 @@
 import { test, expect } from "./support/fixtures";
-import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, signUp } from "./support/app";
+import { FIRST_GROUP_LABEL, NOMINEE_NOTE, createNote, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
 
 test.describe("Notes", () => {
   test.beforeEach(async ({ page, request }) => {
@@ -47,7 +47,7 @@ test.describe("Notes", () => {
     await expect(page.getByRole("heading", { name: "SBI nomination (joint)" })).toBeVisible();
 
     await gotoUnlocked(page, `/notes/${NOMINEE_NOTE.subcategoryId}`);
-    const cards = page.locator(`li a[href*="/notes/${NOMINEE_NOTE.subcategoryId}/note-"]`);
+    const cards = page.locator(`li a[href*="/notes/view?sub=${NOMINEE_NOTE.subcategoryId}&id=note-"]`);
     await expect(cards).toHaveCount(1);
   });
 
@@ -106,7 +106,7 @@ test.describe("Notes", () => {
     await page.getByLabel("Title").fill("HDFC locker");
     await page.getByLabel("Add note").fill("Second key with Arjun.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
 
     await expect(page.getByText("Goes to Arjun Bhattacharjee")).toBeVisible();
 
