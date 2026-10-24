@@ -848,6 +848,12 @@ export async function socialSignIn(args: {
   token: unknown;
   nonce: unknown;
   deviceId?: unknown;
+  /**
+   * Apple only. Apple gives the name to the app, once, on the first
+   * authorization, and never puts it in the token. It only pre-fills the
+   * sign-up form, which the person can change, so the app's word is enough.
+   */
+  name?: unknown;
 }): Promise<Outcome<SocialOutcome>> {
   if (!PROVIDERS.includes(args.provider as SocialProvider)) {
     return fail(400, "Please choose Apple, Google or Facebook.");
@@ -863,6 +869,9 @@ export async function socialSignIn(args: {
   const verified = await driver.verify(provider, String(args.token ?? ""), nonce);
   if (!verified.ok) return fail(401, verified.error);
   const identity = verified.identity;
+  if (provider === "apple" && !identity.name && typeof args.name === "string") {
+    identity.name = args.name.trim().replace(/\s+/g, " ").slice(0, 80) || null;
+  }
 
   const known = store.identity(provider, identity.subject);
   if (known) {

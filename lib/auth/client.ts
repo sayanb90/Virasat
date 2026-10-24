@@ -38,6 +38,7 @@ import {
 import { deviceBridge } from "@/lib/device/bridge";
 import { BiometricsChangedError } from "@/lib/device/keyops";
 import { mintStubToken } from "@/lib/auth/providers/stub";
+import { socialSheets, type SocialSheets } from "@/lib/auth/socialSheets";
 import type { KdfParams, WrappedKey } from "@/lib/crypto/keys";
 
 /* ---------------------------------------------------------------------- */
@@ -480,6 +481,10 @@ export type SocialResult =
  * Continue with a provider. Until the native sheets exist (phase 4) the only
  * driver is the stub, and `identity` is what the test sheet collected.
  */
+/**
+ * The browser harness's test sheet: the identity a provider would have sent,
+ * as a stub token. The server accepts it only from the stub driver.
+ */
 export async function continueWithProvider(
   provider: SocialProvider,
   identity: { email: string | null; name: string; emailVerified: boolean }
@@ -493,12 +498,37 @@ export async function continueWithProvider(
     name: identity.name,
     nonce,
   });
+  return submitSocial(provider, nonce, token, null);
+}
+
+/**
+ * The provider's own sheet, in the iOS or Android app. Resolves null if the
+ * person closed it. The token goes to the server unread.
+ */
+export async function continueWithProviderSheet(
+  provider: SocialProvider,
+  sheets?: SocialSheets
+): Promise<SocialResult | null> {
+  const using = sheets ?? (await socialSheets());
+  const { nonce } = await call<{ nonce: string }>("/api/auth/social/nonce");
+  const sheet = await using.signIn(provider, nonce);
+  if (!sheet) return null;
+  return submitSocial(provider, nonce, sheet.token, sheet.name);
+}
+
+async function submitSocial(
+  provider: SocialProvider,
+  nonce: string,
+  token: string,
+  name: string | null
+): Promise<SocialResult> {
   const device = await loadDevice();
   const result = await call<SocialResult & Partial<Grant>>("/api/auth/social", {
     provider,
     token,
     nonce,
     deviceId: device?.deviceId,
+    ...(name ? { name } : {}),
   });
   if (result.status === "signed-in") {
     await applyGrant(result as unknown as Grant);

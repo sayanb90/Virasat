@@ -2,14 +2,15 @@
  * Virasat - Social sign-in providers.
  *
  * Driver is chosen by environment, defaulting to `stub`, the same shape as
- * email and billing. The real Apple, Google and Facebook drivers arrive with
- * the native app (docs/authentication.md §9, phase 4); until then `native`
- * reports itself not ready rather than pretending.
+ * email and billing. `native` checks real Apple, Google and Facebook tokens
+ * (./native.ts, which lists its own settings); with none of them configured
+ * it reports itself not ready rather than pretending.
  *
  * Configuration:
  *   AUTH_PROVIDERS_DRIVER   stub (default) | native
  */
 
+import { createNativeIdentityDriver } from "./native";
 import { createStubIdentityDriver } from "./stub";
 import type { IdentityProviderDriver } from "./types";
 
@@ -24,7 +25,15 @@ function notReady(name: string, reason: string): IdentityProviderDriver {
   };
 }
 
+let override: IdentityProviderDriver | null = null;
+
+/** Tests: verify with this driver (a native one with local keys) until cleared. */
+export function setIdentityDriverForTesting(driver: IdentityProviderDriver | null): void {
+  override = driver;
+}
+
 export function resolveIdentityDriver(): IdentityProviderDriver {
+  if (override) return override;
   const choice = (process.env.AUTH_PROVIDERS_DRIVER ?? "stub").toLowerCase();
   switch (choice) {
     case "stub":
@@ -38,7 +47,7 @@ export function resolveIdentityDriver(): IdentityProviderDriver {
       }
       return createStubIdentityDriver();
     case "native":
-      return notReady("native", "Apple, Google and Facebook sign-in are not built yet.");
+      return createNativeIdentityDriver();
     default:
       return notReady(
         `unknown:${choice}`,

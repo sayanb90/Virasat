@@ -1,5 +1,7 @@
 import UIKit
 import Capacitor
+import FBSDKCoreKit
+import GoogleSignIn
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
@@ -15,7 +17,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+        // Google's and Facebook's sign-in sheets finish by opening the app
+        // with a URL of their own. Hand those back to their SDKs; anything
+        // else goes to Capacitor as before.
+        let others = URLContexts.filter { context in
+            let url = context.url
+            let byFacebook = FacebookSetup.isConfigured && FBSDKCoreKit.ApplicationDelegate.shared.application(
+                UIApplication.shared,
+                open: url,
+                sourceApplication: context.options.sourceApplication,
+                annotation: context.options.annotation
+            )
+            return !(byFacebook || GIDSignIn.sharedInstance.handle(url))
+        }
+        if !others.isEmpty {
+            SceneDelegateProxy.shared.scene(scene, openURLContexts: others)
+        }
     }
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {

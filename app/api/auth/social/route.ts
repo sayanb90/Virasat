@@ -10,6 +10,7 @@ export async function POST(req: Request) {
       token: body.token,
       nonce: body.nonce,
       deviceId: body.deviceId,
+      name: body.name,
     })
   );
 }

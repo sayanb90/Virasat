@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { continueWithProvider, type SocialProvider, type SocialResult } from "@/lib/auth/client";
+import {
+  continueWithProvider,
+  continueWithProviderSheet,
+  type SocialProvider,
+  type SocialResult,
+} from "@/lib/auth/client";
+import { socialSheets } from "@/lib/auth/socialSheets";
 import { ErrorText, Field, INPUT, messageOf } from "./Fields";
 
 const PROVIDERS: Array<{ id: SocialProvider; label: string }> = [
@@ -11,35 +17,80 @@ const PROVIDERS: Array<{ id: SocialProvider; label: string }> = [
   { id: "facebook", label: "Continue with Facebook" },
 ];
 
+/** The literal read is what Next inlines; the branch not taken leaves the bundle. */
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE === "1";
+
 /**
  * Apple, Google and Facebook. Apple is first: App Store rule 4.8 requires it
  * wherever the others are offered (docs/authentication.md §6).
  *
- * Until the native sheets exist (phase 4), the server's only provider driver
- * is the stub, so a tap opens a test sheet that asks for the name and email
- * a provider would have sent. Nothing here talks to Apple, Google or Meta.
+ * In the iOS and Android apps a tap opens the provider's own sheet
+ * (lib/auth/socialSheets.ts), showing only the providers set up for that
+ * platform. In the browser harness, where the server runs the stub driver, a
+ * tap opens a test sheet that asks for the name and email a provider would
+ * have sent; nothing there talks to Apple, Google or Meta.
  */
 export function SocialButtons({ onResult }: { onResult: (r: SocialResult) => void }) {
   const [sheet, setSheet] = useState<SocialProvider | null>(null);
+  const [offered, setOffered] = useState<SocialProvider[]>(NATIVE ? [] : PROVIDERS.map((p) => p.id));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!NATIVE) return;
+    let cancelled = false;
+    void socialSheets().then((s) => !cancelled && setOffered(s.available()));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const open = async (provider: SocialProvider) => {
+    if (!NATIVE) return setSheet(provider);
+    setBusy(true);
+    setError("");
+    try {
+      const result = await continueWithProviderSheet(provider);
+      if (result) onResult(result);
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // With no provider set up for this platform, there is nothing to offer,
+  // and no "or" to draw.
+  if (offered.length === 0) return null;
   return (
-    <div className="space-y-3">
-      {PROVIDERS.map((p) => (
-        <Button key={p.id} variant="secondary" size="lg" onClick={() => setSheet(p.id)}>
-          {p.label}
-        </Button>
-      ))}
-      {sheet && (
-        <TestProviderSheet
-          provider={sheet}
-          onClose={() => setSheet(null)}
-          onResult={(r) => {
-            setSheet(null);
-            onResult(r);
-          }}
-        />
-      )}
-    </div>
+    <>
+      <div className="my-7 flex items-center gap-3">
+        <span className="h-px flex-1 bg-[var(--border)]" />
+        <span className="text-[14px] font-medium text-[var(--text-faint)]">or</span>
+        <span className="h-px flex-1 bg-[var(--border)]" />
+      </div>
+      <div className="space-y-3">
+        {PROVIDERS.filter((p) => offered.includes(p.id)).map((p) => (
+          <Button key={p.id} variant="secondary" size="lg" disabled={busy} onClick={() => void open(p.id)}>
+            {p.label}
+          </Button>
+        ))}
+        <ErrorText>{error}</ErrorText>
+        {sheet && (
+          <TestProviderSheet
+            provider={sheet}
+            onClose={() => setSheet(null)}
+            onResult={(r) => {
+              setSheet(null);
+              onResult(r);
+            }}
+          />
+        )}
+      </div>
+      <p className="mt-4 text-center text-[15px] leading-relaxed text-[var(--text-muted)]">
+        We only take your name and email from these. You will still choose a Virasat password.
+      </p>
+    </>
   );
 }
 

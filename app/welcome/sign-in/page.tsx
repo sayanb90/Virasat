@@ -198,16 +198,7 @@ function Choose({
         </Button>
       </div>
 
-      <div className="my-7 flex items-center gap-3">
-        <span className="h-px flex-1 bg-[var(--border)]" />
-        <span className="text-[14px] font-medium text-[var(--text-faint)]">or</span>
-        <span className="h-px flex-1 bg-[var(--border)]" />
-      </div>
-
       <SocialButtons onResult={onSocial} />
-      <p className="mt-4 text-center text-[15px] leading-relaxed text-[var(--text-muted)]">
-        We only take your name and email from these. You will still choose a Virasat password.
-      </p>
     </Screen>
   );
 }

@@ -280,9 +280,13 @@ are done:
 - **The PIN:** five wrong PINs delete the server's half of the PIN key, after
   which only the password brings that phone back.
 - **Social providers** take name and email only, and never link to an existing
-  account on email alone — the password is asked first. Until the native app
-  (phase 4), `AUTH_PROVIDERS_DRIVER=stub` shows a test sheet; it refuses to run
-  in a production build outside the e2e harness.
+  account on email alone — the password is asked first. In the iOS and
+  Android apps each provider's own sheet signs in (`lib/auth/socialSheets.ts`)
+  and the server checks the token (`lib/auth/providers/native.ts`): Apple and
+  Google ID tokens against their published keys, with `iss`, `aud`, `exp` and
+  our one-time nonce; Facebook with the Graph API, or its Limited Login token.
+  The browser harness keeps `AUTH_PROVIDERS_DRIVER=stub`, a test sheet that
+  refuses to run in a production build outside the e2e harness.
 - **Forgotten password:** path A on a phone already set up (Face ID / PIN + an
   email code), path B with the printed Recovery Kit (an email code + the kit +
   a 72-hour hold, with an emailed "this is not me" link). The kit is spent on
@@ -295,7 +299,10 @@ are done:
 
 | Variable | Meaning |
 | :--- | :--- |
-| `AUTH_PROVIDERS_DRIVER` | `stub` *(default)* or `native` (not built yet; reports not-ready) |
+| `AUTH_PROVIDERS_DRIVER` | `stub` *(default)* or `native`: real Apple, Google and Facebook tokens |
+| `APPLE_CLIENT_IDS` | `native`: the app's bundle id (comma-separated if more) |
+| `GOOGLE_CLIENT_IDS` | `native`: the iOS client id and the web client id Android's sheet uses |
+| `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | `native`: the Meta app. `FACEBOOK_GRAPH_VERSION` defaults to `v23.0` |
 | `AUTH_SERVER_SECRET` | Keys the fake salts for unknown emails. Random per process if unset, which is right only while the store is in memory |
 
 ---
@@ -778,6 +785,13 @@ npx cap open android    # Android Studio: an API 30+ emulator with a fingerprint
   plugin, `VirasatDevice`: `ios/App/App/VirasatDevicePlugin.swift` and
   `android/app/src/main/java/com/virasat/app/VirasatDevicePlugin.java`. The
   formats it returns, and why, are in `lib/device/native.ts`.
+- **Sign-in providers in the apps** need their ids at build time:
+  `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`,
+  `NEXT_PUBLIC_FACEBOOK_APP_ID` and `NEXT_PUBLIC_FACEBOOK_CLIENT_TOKEN` for the
+  web bundle, and on iOS the `GOOGLE_IOS_URL_SCHEME` (the reversed iOS client
+  id), `FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` build settings. A provider
+  without its ids is simply not offered. Apple is offered on iOS only. The
+  Facebook SDK logs no app events and collects no advertising id.
 - CI compiles both apps when native code changes (`.github/workflows/native.yml`).
   What has and has not been checked on a device is in
   [`docs/developmentPlan.md`](docs/developmentPlan.md), with the checklist.

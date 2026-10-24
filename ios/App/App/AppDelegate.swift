@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import FBSDKCoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +8,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // The Facebook SDK must see the launch, but it stops the app if it
+        // has no app id, so it starts only once FACEBOOK_APP_ID is set.
+        if FacebookSetup.isConfigured {
+            _ = FBSDKCoreKit.ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
+        }
         return true
     }
 
@@ -40,5 +45,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                                           sessionRole: connectingSceneSession.role)
         config.delegateClass = SceneDelegate.self
         return config
+    }
+}
+
+/// Whether this build has a Facebook app id (Info.plist, from FACEBOOK_APP_ID).
+enum FacebookSetup {
+    static var isConfigured: Bool {
+        let appId = Bundle.main.object(forInfoDictionaryKey: "FacebookAppID") as? String ?? ""
+        return !appId.isEmpty
     }
 }

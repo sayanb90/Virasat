@@ -2,6 +2,40 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Sign-in providers (lib/auth/socialSheets.ts). The values come from
+	     build settings: set FACEBOOK_APP_ID, FACEBOOK_CLIENT_TOKEN and
+	     GOOGLE_IOS_URL_SCHEME (the reversed iOS client id) in the App
+	     target, or on the xcodebuild command line. Until FACEBOOK_APP_ID is
+	     set, the Facebook SDK is never started (AppDelegate.swift). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_IOS_URL_SCHEME)</string>
+				<string>fb$(FACEBOOK_APP_ID)</string>
+			</array>
+		</dict>
+	</array>
+	<key>FacebookAppID</key>
+	<string>$(FACEBOOK_APP_ID)</string>
+	<key>FacebookClientToken</key>
+	<string>$(FACEBOOK_CLIENT_TOKEN)</string>
+	<key>FacebookDisplayName</key>
+	<string>Virasat</string>
+	<!-- Facebook is for signing in only: no app events, no advertising id. -->
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fbapi</string>
+		<string>fbauth</string>
+		<string>fbauth2</string>
+		<string>fb-messenger-share-api</string>
+		<string>fbshareextension</string>
+	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Virasat uses Face ID to open your notes, so nobody else can read them.</string>
   <key>CAPACITOR_DEBUG</key>

@@ -242,6 +242,40 @@ fingerprint in Settings and use *Extended controls → Fingerprint*.
 8. Uninstall and reinstall: the app starts signed out.
 9. Android: `adb backup` / a device transfer carries nothing.
 
+### On `authenticationEntitlements`: phase 4, real social providers (built, not yet run against real accounts)
+
+- **The server checks every token** (`lib/auth/providers/native.ts`,
+  `AUTH_PROVIDERS_DRIVER=native`):
+  - Apple and Google: an ID token, verified with `jose` against the
+    provider's published keys, with `iss`, `aud` (our client ids), `exp` (a
+    minute's tolerance) and our one-time nonce. iOS sends Apple the nonce's
+    SHA-256, so either form is accepted.
+  - Facebook: a Limited Login ID token (iOS) is checked the same way; a
+    classic access token through `debug_token` (valid, our app) and `/me`
+    (the same user, with `appsecret_proof`). A classic token carries no
+    nonce; the single-use server nonce and "valid for our app now" are the
+    protection. Facebook addresses are never treated as verified: Meta
+    asserts no `email_verified`, so the person confirms it by code.
+  - Each provider is off until configured, and says so.
+- **Apple's name**, which Apple gives the app once and never puts in the
+  token, is passed by the app and only pre-fills the sign-up form.
+- **The app's sheets** (`lib/auth/socialSheets.ts`) use
+  `@capgo/capacitor-social-login` (pinned at 8.5.15), loaded only in the
+  native build. A provider appears once its ids are set; Apple is iOS-only.
+  The browser harness keeps the stub's test sheet.
+- **Native setup:** Sign in with Apple entitlement; Info.plist keys and URL
+  schemes from build settings; Google's and Facebook's URL callbacks handled
+  in the SceneDelegate. The Facebook SDK starts only once an app id is set
+  (it stops the app otherwise), and logs no app events and collects no
+  advertising id on either platform; the `AD_ID` permission is removed.
+- **Verified here:** unit tests sign real JWTs with local keys and check every
+  refusal (another app, another issuer, another key, expired, another
+  sign-in, no nonce, `alg: none`); Facebook's Graph calls against a fake
+  Graph API; the sheets against a fake plugin; and the whole path from sheet
+  to sign-up form through the real API (`tests/unit/social-sheets.test.ts`).
+  Cucumber `13_real_social_providers.feature`. **Not verified:** any real
+  provider, account or device.
+
 ---
 
 ## 2. Decided, not yet built
@@ -314,16 +348,13 @@ This replaces Beneficiary key pairs and fixes defects 1 and 3 in the README.
 - **Done when:** the `handover.spec.ts` fixme passes. A Beneficiary receives
   both emails and opens the PDF with the code.
 
-### Phase 4: real social providers
+### Phase 4: real social providers — built, see §1. Remaining:
 
-- Server drivers behind `AUTH_PROVIDERS_DRIVER=native`:
-  - **Apple and Google:** verify ID tokens against their JWKS with `jose`,
-    checking `iss`, `aud`, `exp` and our `nonce`.
-  - **Facebook:** `debug_token`, then `/me?fields=name,email`.
-- Native sign-in sheets in the app.
-- Apple sends the name only on the first authorization, so capture it then.
-  Facebook may send no email at all; that path already exists.
-- **Done when:** each provider signs up and signs in with real test accounts.
+- **Real test accounts** (§4 prerequisites), then the done-when: each provider
+  signs up and signs in on a device.
+- **Sign in with Apple on Android.** It is a web flow that needs an Apple
+  Services ID and a redirect endpoint on the API host. Until then Android
+  offers Google and Facebook.
 
 ### Phase 5: hardening
 

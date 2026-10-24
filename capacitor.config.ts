@@ -21,6 +21,15 @@ const config: CapacitorConfig = {
     // Release builds must not be inspectable from a desktop Chrome.
     webContentsDebuggingEnabled: false,
   },
+  plugins: {
+    // Apple, Google and Facebook sign-in sheets (lib/auth/socialSheets.ts).
+    // Only these three are bundled; each appears in the app once its ids are
+    // set (README, "Sign-in providers").
+    SocialLogin: {
+      providers: { apple: true, google: true, facebook: true, twitter: false },
+      logLevel: 1,
+    },
+  },
 };
 
 export default config;

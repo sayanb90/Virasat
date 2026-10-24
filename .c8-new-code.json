@@ -1,5 +1,5 @@
 {
-  "//": "The gate for code written in phases 2 and 3 (npm run test:coverage). Each file must keep this coverage on its own. Older code is reported by .c8rc.json but not gated yet.",
+  "//": "The gate for code written from phase 2 on (npm run test:coverage). Each file must keep this coverage on its own. Older code is reported by .c8rc.json but not gated yet.",
   "temp-directory": "coverage/.tmp",
   "include": [
     "lib/device/der.ts",
@@ -13,7 +13,10 @@
     "lib/config.ts",
     "proxy.ts",
     "next.config.ts",
-    "scripts/serve-static.mjs"
+    "scripts/serve-static.mjs",
+    "lib/auth/providers/native.ts",
+    "lib/auth/providers/index.ts",
+    "lib/auth/socialSheets.ts"
   ],
   "per-file": true,
   "lines": 100,
