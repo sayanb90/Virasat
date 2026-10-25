@@ -319,7 +319,7 @@ are done:
 | `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | `native`: the Meta app. `FACEBOOK_GRAPH_VERSION` defaults to `v23.0` |
 | `CLIENT_IP_HEADER`, `TRUSTED_PROXY_HOPS` | Where the client's address is, for the per-network limits. Default `x-forwarded-for`, 1 |
 | `PUSH_DRIVER` | `console` *(default)* or `native`: APNs for iOS (`APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC`, `APNS_SANDBOX`) and FCM for Android (`FCM_SERVICE_ACCOUNT_JSON`) |
-| `AUTH_SERVER_SECRET` | Keys the fake salts for unknown emails. Random per process if unset, which is right only while the store is in memory |
+| `AUTH_SERVER_SECRET` | Keys the fake salts for unknown emails. Random per process if unset, which is right only while the store is in memory (not with `DATA_FILE`, where a restart changes the fake salts) |
 
 ---
 
@@ -543,7 +543,7 @@ static export on one origin, the API on another, exactly as the native app
 talks to it — so every PR is checked against the two artifacts that ship.
 `native.yml` also compiles the iOS and Android apps when native code changes.
 
-**Unit tests (`tests/unit`, 235 tests)** use Node's own test runner, with no
+**Unit tests (`tests/unit`, 257 tests)** use Node's own test runner, with no
 framework. `client.test.ts` runs the app's sign-in code on a "phone": the
 native bridge over a fake plugin that answers in the real plugins' formats,
 against the real API route handlers served in-process
@@ -757,6 +757,20 @@ npm run dev          # http://localhost:3000
 
 Next 16 allows only one dev server per directory. If a second refuses to start,
 kill the first by the PID it printed.
+
+### Mock data
+
+Everything is in memory unless `DATA_FILE` names a file to save it to. To try
+the whole thing with real-looking accounts:
+
+```bash
+npm run db:mock -- --inbox you@gmail.com    # six Owners, one at each check-in stage
+DATA_FILE=data/mock-db.json npm run dev     # sign in with the printed password
+```
+
+Beneficiaries and Trusted Friends are plus-addresses of that inbox, so with
+`--send` and a real email driver every email lands in it. Details, and how to
+send through Resend's sandbox: `docs/runbook.md` §8.1.
 
 ### Production: two builds from one repo
 

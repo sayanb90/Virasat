@@ -366,9 +366,52 @@ export class MockZeroKnowledgeDatabase {
   public getAuditLogs(): AuditLogRecord[] {
     return this.auditLogs;
   }
+
+  /** Everything this vault holds, as plain data (lib/persistence/snapshot.ts). */
+  public toSnapshot(): VaultSnapshot {
+    return {
+      vaultItems: [...this.vaultItems.values()],
+      beneficiaries: [...this.beneficiaries.values()],
+      envelopes: [...this.envelopes.values()],
+      trustedFriends: [...this.trustedFriends.values()],
+      auditLogs: [...this.auditLogs],
+      settings: { ...this.settings },
+      simulatedElapsedDays: this.simulatedElapsedDays,
+      lastCheckInDate: this.lastCheckInDate,
+    };
+  }
+
+  /** A vault exactly as a snapshot left it. */
+  public static fromSnapshot(snap: VaultSnapshot): MockZeroKnowledgeDatabase {
+    const db = new MockZeroKnowledgeDatabase();
+    db.vaultItems = new Map(snap.vaultItems.map((x) => [x.id, x]));
+    db.beneficiaries = new Map(snap.beneficiaries.map((x) => [x.id, x]));
+    db.envelopes = new Map(snap.envelopes.map((x) => [x.id, x]));
+    db.trustedFriends = new Map(snap.trustedFriends.map((x) => [x.id, x]));
+    db.auditLogs = [...snap.auditLogs];
+    db.settings = { ...snap.settings };
+    db.simulatedElapsedDays = snap.simulatedElapsedDays;
+    db.lastCheckInDate = snap.lastCheckInDate;
+    return db;
+  }
 }
 
-const vaults = new Map<string, MockZeroKnowledgeDatabase>();
+export interface VaultSnapshot {
+  vaultItems: VaultItemRecord[];
+  beneficiaries: BeneficiaryRecord[];
+  envelopes: BeneficiaryEnvelopeRecord[];
+  trustedFriends: TrustedFriendRecord[];
+  auditLogs: AuditLogRecord[];
+  settings: AccountSettings;
+  simulatedElapsedDays: number;
+  lastCheckInDate: string;
+}
+
+// On globalThis, not module scope: Next may bundle a module more than once
+// (the routes, and instrumentation.ts that loads a snapshot at start-up),
+// and every copy must see the same vaults.
+const g = globalThis as { __virasatVaults?: Map<string, MockZeroKnowledgeDatabase> };
+const vaults = (g.__virasatVaults ??= new Map<string, MockZeroKnowledgeDatabase>());
 
 /** The vault of the signed-in user. Created on first use. */
 export function vaultFor(userId: string): MockZeroKnowledgeDatabase {
@@ -391,4 +434,13 @@ export function allVaults(): Array<{ userId: string; vault: MockZeroKnowledgeDat
 
 export function resetVaultsForTesting(): void {
   vaults.clear();
+}
+
+export function snapshotVaults(): Array<{ userId: string; vault: VaultSnapshot }> {
+  return [...vaults.entries()].map(([userId, vault]) => ({ userId, vault: vault.toSnapshot() }));
+}
+
+export function restoreVaults(entries: Array<{ userId: string; vault: VaultSnapshot }>): void {
+  vaults.clear();
+  for (const { userId, vault } of entries) vaults.set(userId, MockZeroKnowledgeDatabase.fromSnapshot(vault));
 }

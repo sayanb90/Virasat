@@ -117,6 +117,40 @@ class AuthStore {
     );
   }
 
+  /** The maps a snapshot keeps. Test-only captures and the rate limits are left out. */
+  static readonly PERSISTED = [
+    "pushTokens",
+    "users",
+    "usersByEmail",
+    "identities",
+    "devices",
+    "sessions",
+    "refreshTokens",
+    "emailCodes",
+    "signupTickets",
+    "linkTickets",
+    "socialNonces",
+    "recoveries",
+    "loginFailures",
+    "recoveryFailures",
+  ] as const;
+
+  /** Every persisted map as [key, value] pairs (lib/persistence/snapshot.ts). */
+  toSnapshot(): AuthSnapshot {
+    const out = {} as AuthSnapshot;
+    for (const name of AuthStore.PERSISTED) out[name] = [...(this[name] as Map<unknown, unknown>).entries()];
+    return out;
+  }
+
+  /** Replaces every persisted map with a snapshot's. A map it lacks is left empty. */
+  restore(snap: Partial<AuthSnapshot>): void {
+    for (const name of AuthStore.PERSISTED) {
+      const map = this[name] as Map<unknown, unknown>;
+      map.clear();
+      for (const [k, v] of snap[name] ?? []) map.set(k, v);
+    }
+  }
+
   resetForTesting(): void {
     this.users.clear();
     this.usersByEmail.clear();
@@ -138,4 +172,8 @@ class AuthStore {
   }
 }
 
-export const authStore = new AuthStore();
+export type AuthSnapshot = Record<(typeof AuthStore.PERSISTED)[number], Array<[unknown, unknown]>>;
+
+// On globalThis: see lib/state/mockDatabase.ts.
+const g = globalThis as { __virasatAuthStore?: AuthStore };
+export const authStore = (g.__virasatAuthStore ??= new AuthStore());

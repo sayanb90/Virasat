@@ -24,7 +24,10 @@
     "lib/push/alerts.ts",
     "lib/push/drivers/console.ts",
     "lib/push/drivers/apns.ts",
-    "lib/push/drivers/fcm.ts"
+    "lib/push/drivers/fcm.ts",
+    "lib/persistence/snapshot.ts",
+    "lib/dev/mockDb.ts",
+    "lib/dev/mockEmails.ts"
   ],
   "per-file": true,
   "lines": 100,

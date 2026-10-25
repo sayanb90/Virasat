@@ -68,7 +68,8 @@ Legend:
 | Static app build + separate API host | ✅ | `next.config.ts`, `proxy.ts` | |
 | CORS for the apps' origins only | ✅ | `proxy.ts` | |
 | Email (Resend / SendGrid) | 🟡 | `lib/email` | A provider account, a verified sending domain |
-| **Persistence** | ❌ | `lib/auth/store.ts`, `lib/state/mockDatabase.ts`, `lib/email/outbox.ts`, `lib/billing/ledger.ts`, `lib/auth/rateLimit.ts` | Everything is in memory; a restart signs everyone out and loses every vault (§2, blocker 1) |
+| **Persistence** | 🟡 | `lib/persistence/snapshot.ts`, `instrumentation.ts` | With `DATA_FILE` set, every store is saved to one JSON file and loaded at start. For development and demos only: no database yet (§2, blocker 1) |
+| Mock data | ✅ | `lib/dev/mockDb.ts`, `scripts/mock-db.ts` | `npm run db:mock` (§8.1) |
 | Tests and CI | ✅ | `tests/unit`, `features`, `e2e`, `.github/workflows` | |
 
 ---
@@ -78,10 +79,20 @@ Legend:
 None of these can be configured away. Each one is code to write first. Until
 all are done, run Virasat only with test data.
 
-1. **Persistence.** Accounts, sessions, vaults, the email outbox, billing, push
-   tokens and rate-limit counters all live in memory. The seams are listed in
-   the platform table above. Each is a narrow class or module built to be
-   swapped for a database. Once it lands, set `AUTH_SERVER_SECRET` (§4.1) and
+1. **Persistence.** Accounts, sessions, vaults, the email outbox, billing and
+   push tokens live in memory. `DATA_FILE` saves them all to one JSON file
+   (every 2 seconds when something changed, and on shutdown) and loads it at
+   start, so a restart keeps everyone signed in. That is enough for
+   development and demos, not for users:
+   - one server process only; two would overwrite each other's file;
+   - the whole file is rewritten on every save;
+   - up to 2 seconds of changes are lost if the process is killed;
+   - no backups, and the file is readable by anyone with the disk.
+   The vaults themselves stay ciphertext in the file. Rate-limit counters are
+   not saved; a restart resets them.
+   The seams for a database are `lib/auth/store.ts`,
+   `lib/state/mockDatabase.ts`, `lib/email/outbox.ts` and
+   `lib/billing/ledger.ts`. Once it lands, set `AUTH_SERVER_SECRET` (§4.1) and
    never change it.
 2. **A real clock for the check-in ladder.**
    - `heartbeatMachine` and `dispatchDueEmails` work from
@@ -90,6 +101,11 @@ all are done, run Virasat only with test data.
    - It also needs a scheduled job (at least daily) that runs the dispatcher
      for every Owner. `/api/scheduler` is the test time-machine. It must stay
      404 in production; it is not that job.
+   - The dispatcher sends every step that is past due at once. An Owner who
+     is first seen late in the ladder (the mock "released" Owner, or anyone
+     after an outage of the job) gets every reminder in one burst. The job
+     should send only the latest step due and mark the earlier ones as
+     skipped.
 3. **Release delivery** (phase 3b). Today nothing reaches a Beneficiary.
 4. **Entitlement.** What a lapsed subscription does must be applied, with
    "uncertainty resolves to hold" (`release-and-entitlement.md` §4).
@@ -163,6 +179,18 @@ release. Everything else is read by the API host at runtime.
 - `CORS_ALLOWED_ORIGINS` allows extra origins, for the test harness only.
 - `STUB_WEBHOOK_SECRET`.
 - `AUTH_PROVIDERS_DRIVER=stub`.
+
+**Development and staging only:**
+- `DATA_FILE` saves every store to this JSON file and loads it at start
+  (§2, blocker 1). Unset, everything is in memory. If others can reach the
+  server, set `AUTH_SERVER_SECRET` too: otherwise the fake salts change on
+  every restart, which tells an observer which addresses are real.
+- `EMAIL_REDIRECT_TO` delivers every email to this one address instead, with
+  the intended recipient in the subject and the first line. The outbox still
+  records who it was meant for. For a provider sandbox that sends only to
+  its own account (Resend's `onboarding@resend.dev`), or a staging server
+  with real-looking addresses.
+- `SEED_INBOX`, `SEED_PASSWORD`: defaults for `npm run db:mock` (§8.1).
 
 ### 4.2 The app bundle, build time (`npm run build:native`)
 
@@ -337,6 +365,46 @@ Tick every line before the first real user:
   release. Move `FACEBOOK_GRAPH_VERSION` before the date Meta announces.
 - **Tuning the per-network limits:** `LIMITS` in `lib/auth/rateLimit.ts`.
 
+### 8.1 Mock data
+
+`npm run db:mock` builds six Owners through the real sign-up flow and the
+real crypto, so their notes really decrypt, and saves them to a data file:
+
+| Owner | Stage | What it shows |
+| :--- | :--- | :--- |
+| the inbox itself | healthy | Six notes, two Beneficiaries, one accepted Trusted Friend and one invited, a Recovery Kit |
+| `+owner.gentle` | gentle reminder | |
+| `+owner.urgent` | urgent reminder | |
+| `+owner.critical` | final warning | |
+| `+owner.released` | released | Release notices to its Beneficiary |
+| `+owner.vacation` | on vacation | Nothing is sent |
+
+Every Beneficiary and Trusted Friend is a plus-address of the same inbox
+(`you+meera@gmail.com`), so all of it lands in one place. Every account has
+the same password, printed at the end with the Recovery Kit code and the
+invitation links.
+
+```bash
+npm run db:mock -- --inbox you@gmail.com           # writes data/mock-db.json
+DATA_FILE=data/mock-db.json npm run dev            # sign in as any of them
+```
+
+Options: `--out <file>`, `--password <p>`, `--force` (replace the file).
+
+`--send` also sends what each Owner's stage calls for (reminders, release
+notices, invitations), once each, through the configured driver. To see them
+arrive with Resend's sandbox, which sends only to the Resend account's own
+address:
+
+```bash
+EMAIL_DRIVER=resend RESEND_API_KEY=<from the environment> \
+EMAIL_FROM="Virasat <onboarding@resend.dev>" EMAIL_REDIRECT_TO=you@gmail.com \
+npm run db:mock -- --inbox you@gmail.com --force --send
+```
+
+Development only. `data/` is ignored by git: anyone with the file and the
+printed password can open every seeded vault.
+
 ---
 
 ## 9. Where the tests are
@@ -346,6 +414,7 @@ Tick every line before the first real user:
 | `npm run test:coverage` | Unit tests and Cucumber, under coverage, with the gate for code from phase 2 on (`.c8-new-code.json`) |
 | `npm run build:e2e-split && npm run test:e2e:split` | Playwright against the static app and a separate API, as shipped |
 | `npm run test:e2e` | Playwright with app and API on one origin (development) |
+| `npm run db:mock` | Not a test: the mock data in §8.1, for trying the whole thing by hand |
 | CI: `.github/workflows/ci.yml` | All of the above, on every pull request |
 | CI: `.github/workflows/native.yml` | The iOS Simulator build and the Android debug APK, when native code changes |
 

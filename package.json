@@ -17,7 +17,8 @@
     "build:api": "BUILD_TARGET=api next build",
     "build:native": "BUILD_TARGET=app NEXT_PUBLIC_NATIVE=1 next build && cap sync",
     "build:e2e-split": "BUILD_TARGET=app NEXT_PUBLIC_API_BASE=http://127.0.0.1:3399 next build && BUILD_TARGET=api next build",
-    "test:e2e:split": "E2E_MODE=split playwright test"
+    "test:e2e:split": "E2E_MODE=split playwright test",
+    "db:mock": "node --require ./tests/unit/setup.cjs scripts/mock-db.ts"
   },
   "dependencies": {
     "@capacitor/android": "8.5.3",
