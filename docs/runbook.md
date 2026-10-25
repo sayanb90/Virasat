@@ -427,6 +427,7 @@ deployed.
 
 | Date | Commit | Change |
 | :--- | :--- | :--- |
+| 2026-10-25 | `4dbd6a1` | Data file persistence and mock data. New settings: `DATA_FILE`, `EMAIL_REDIRECT_TO` (development and staging only); new: `npm run db:mock`. |
 | 2026-10-24 | `4a03a72` | Playwright for the Settings phones list and change password. |
 | 2026-10-24 | `0ad23d2` | Phase 5: per-network limits, Argon2id, change password, your phones, recovery banner, push alerts (APNs/FCM). New settings: `CLIENT_IP_HEADER`, `TRUSTED_PROXY_HOPS`, `PUSH_DRIVER`, `APNS_*`, `FCM_SERVICE_ACCOUNT_JSON`. |
 | 2026-10-24 | `44bf4ce` | Phase 4: real Apple / Google / Facebook sign-in. New settings: `AUTH_PROVIDERS_DRIVER=native`, `APPLE_CLIENT_IDS`, `GOOGLE_CLIENT_IDS`, `FACEBOOK_*`, `NEXT_PUBLIC_GOOGLE_*`, `NEXT_PUBLIC_FACEBOOK_*`; iOS build settings. |
