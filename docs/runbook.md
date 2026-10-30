@@ -428,6 +428,7 @@ deployed.
 
 | Date | Commit | Change |
 | :--- | :--- | :--- |
+| 2026-10-30 | `985bc3e` | SCRUM-36: every API route has a tested rule. `GET /api/email` and `GET /api/billing` no longer list other accounts' mail and payments outside the test harness. |
 | 2026-10-25 | `4dbd6a1` | Data file persistence and mock data. New settings: `DATA_FILE`, `EMAIL_REDIRECT_TO` (development and staging only); new: `npm run db:mock`. |
 | 2026-10-24 | `4a03a72` | Playwright for the Settings phones list and change password. |
 | 2026-10-24 | `0ad23d2` | Phase 5: per-network limits, Argon2id, change password, your phones, recovery banner, push alerts (APNs/FCM). New settings: `CLIENT_IP_HEADER`, `TRUSTED_PROXY_HOPS`, `PUSH_DRIVER`, `APNS_*`, `FCM_SERVICE_ACCOUNT_JSON`. |
