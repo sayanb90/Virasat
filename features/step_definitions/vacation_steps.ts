@@ -1,7 +1,10 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import assert from "assert";
-import { db } from "../../lib/state/mockDatabase";
+import { MockZeroKnowledgeDatabase } from "../../lib/state/mockDatabase";
 import { MAX_VACATION_DAYS, VACATION_PRESETS } from "../../lib/state/heartbeatMachine";
+
+/** One account's vault, as every route now reaches it through vaultFor(). */
+const db = new MockZeroKnowledgeDatabase();
 
 const DAY = 86_400_000;
 

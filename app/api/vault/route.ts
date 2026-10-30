@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { db, VaultItemRecord } from "@/lib/state/mockDatabase";
+import { isResponse, requireSession } from "@/lib/auth/http";
+import { VaultItemRecord } from "@/lib/state/mockDatabase";
 
 // GET /api/vault - Retrieve all zero-knowledge encrypted note records
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   const items = db.getVaultItems();
   return NextResponse.json({
     success: true,
@@ -19,6 +23,9 @@ export async function GET() {
  * creates a new note.
  */
 export async function POST(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   try {
     const body = await req.json();
     const {
@@ -93,6 +100,9 @@ export async function POST(req: Request) {
 
 // DELETE /api/vault?id=xyz - Delete an encrypted note record
 export async function DELETE(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 

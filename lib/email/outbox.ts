@@ -30,8 +30,9 @@ export interface OutboxEntry {
   at: string;
 }
 
-const entries: OutboxEntry[] = [];
-const seen = new Set<string>();
+// On globalThis: see lib/state/mockDatabase.ts.
+const g = globalThis as { __virasatOutbox?: { entries: OutboxEntry[]; seen: Set<string> } };
+const { entries, seen } = (g.__virasatOutbox ??= { entries: [], seen: new Set<string>() });
 
 /** True when this exact message has already been handed to a driver. */
 export function alreadySent(idempotencyKey: string): boolean {
@@ -53,4 +54,19 @@ export function listOutbox(): OutboxEntry[] {
 export function resetOutbox(): void {
   entries.length = 0;
   seen.clear();
+}
+
+export interface OutboxSnapshot {
+  entries: OutboxEntry[];
+  seen: string[];
+}
+
+export function snapshotOutbox(): OutboxSnapshot {
+  return { entries: [...entries], seen: [...seen] };
+}
+
+export function restoreOutbox(snap: OutboxSnapshot): void {
+  resetOutbox();
+  entries.push(...snap.entries);
+  for (const key of snap.seen) seen.add(key);
 }

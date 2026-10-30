@@ -1,10 +1,6 @@
-import { test, expect } from "@playwright/test";
-import {
-  NOMINEE_NOTE,
-  gotoUnlocked,
-  resetServer,
-  seedOnboarded,
-} from "./support/app";
+import { test, expect } from "./support/fixtures";
+import { NOMINEE_NOTE, escapeRe, gotoUnlocked, resetServer, savedNoteUrl, signUp } from "./support/app";
+import { newNoteHref } from "../lib/routes";
 
 /** A small PNG, enough to prove a binary survives the encryption round trip. */
 const PNG = Buffer.from(
@@ -18,13 +14,13 @@ async function openNewNoteForm(page: import("@playwright/test").Page) {
   await page
     .getByRole("link", { name: `Add a note under ${NOMINEE_NOTE.subcategoryLabel}` })
     .click();
-  await page.waitForURL(/banks\.nominees\/new/);
+  await page.waitForURL(new RegExp(escapeRe(newNoteHref(NOMINEE_NOTE.subcategoryId))));
 }
 
 test.describe("Attachments", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("a file can be attached, and survives save and reopen", async ({ page }) => {
@@ -41,7 +37,7 @@ test.describe("Attachments", () => {
     await page.getByLabel("Title").fill("Bank locker");
     await page.getByLabel("Add note").fill("Second key is with Meera.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
 
     // Present on the note, and the text still decrypts alongside it.
     await expect(page.getByText("locker-key-photo.png")).toBeVisible();
@@ -53,7 +49,7 @@ test.describe("Attachments", () => {
     await expect(page.getByLabel("Add note")).toHaveValue(/Second key is with Meera/);
   });
 
-  test("the attachment never reaches the server in the clear", async ({ page, request }) => {
+  test("the attachment never reaches the server in the clear", async ({ page, api }) => {
     await openNewNoteForm(page);
     await page.locator('input[type="file"]').nth(1).setInputFiles({
       name: "passport-scan.png",
@@ -63,9 +59,9 @@ test.describe("Attachments", () => {
     await page.getByLabel("Title").fill("Passport");
     await page.getByLabel("Add note").fill("In the green folder.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
 
-    const { items } = await (await request.get("/api/vault")).json();
+    const { items } = await (await api.get("/api/vault")).json();
     const stored = JSON.stringify(items);
     expect(stored).not.toContain("In the green folder");
     // The filename lives inside the encrypted payload too, not on the record.
@@ -83,7 +79,7 @@ test.describe("Attachments", () => {
     await page.getByLabel("Title").fill("Policy papers");
     await page.getByLabel("Add note").fill("Keep this text.");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.waitForURL(/banks\.nominees\/note-/);
+    await page.waitForURL(savedNoteUrl(NOMINEE_NOTE.subcategoryId));
     await expect(page.getByText("old-scan.png")).toBeVisible();
 
     await page.getByRole("button", { name: "Edit", exact: true }).click();

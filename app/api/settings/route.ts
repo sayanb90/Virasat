@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/state/mockDatabase";
+import { isResponse, requireSession } from "@/lib/auth/http";
 import { CYCLE_OPTIONS, MAX_VACATION_DAYS, VACATION_PRESETS } from "@/lib/state/heartbeatMachine";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   return NextResponse.json({
     success: true,
     settings: db.getSettings(),
@@ -14,6 +17,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
   try {
     const body = await req.json();
     const patch: Record<string, unknown> = {};

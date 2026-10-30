@@ -1,14 +1,14 @@
-import { test, expect } from "@playwright/test";
-import { resetServer, seedOnboarded } from "./support/app";
+import { test, expect } from "./support/fixtures";
+import { resetServer, signUp, gotoUnlocked } from "./support/app";
 
 test.describe("Safety check-in and Settings", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("the safety screen speaks plainly, with no engineering jargon", async ({ page }) => {
-    await page.goto("/heartbeat");
+    await gotoUnlocked(page, "/heartbeat");
 
     await expect(page.getByRole("heading", { name: "Are you well?" })).toBeVisible();
     await expect(page.getByText("You are all set")).toBeVisible();
@@ -16,33 +16,33 @@ test.describe("Safety check-in and Settings", () => {
   });
 
   test("checking in is acknowledged", async ({ page }) => {
-    await page.goto("/heartbeat");
+    await gotoUnlocked(page, "/heartbeat");
     await page.getByRole("button", { name: /I am safe and well/i }).click();
 
     await expect(page.getByText(/we have noted that you are well/i)).toBeVisible();
   });
 
-  test("the check-in interval reaches the escalation engine", async ({ page, request }) => {
-    await page.goto("/settings");
+  test("the check-in interval reaches the escalation engine", async ({ page, api }) => {
+    await gotoUnlocked(page, "/settings");
     await page.getByRole("button", { name: /^Check-in interval/ }).click();
     await page.getByRole("button", { name: "Every 6 months" }).click();
 
     await expect(async () => {
-      const { phaseInfo } = await (await request.get("/api/heartbeat")).json();
+      const { phaseInfo } = await (await api.get("/api/heartbeat")).json();
       expect(phaseInfo.totalDaysInCycle).toBe(183);
     }).toPass();
   });
 
   test("the same elapsed time escalates on a short cycle but not a long one", async ({
-    request,
+    api,
   }) => {
     // Proves the phases scale with the cycle rather than being truncated.
-    const { cycleOptions } = await (await request.get("/api/settings")).json();
+    const { cycleOptions } = await (await api.get("/api/settings")).json();
     expect(cycleOptions.map((o: { days: number }) => o.days)).toContain(183);
 
     const phaseAt = async (cycleDays: number) => {
-      await request.patch("/api/settings", { data: { checkInCycleDays: cycleDays } });
-      const { phaseInfo } = await (await request.get("/api/heartbeat")).json();
+      await api.patch("/api/settings", { data: { checkInCycleDays: cycleDays } });
+      const { phaseInfo } = await (await api.get("/api/heartbeat")).json();
       return phaseInfo;
     };
 
@@ -58,11 +58,11 @@ test.describe("Safety check-in and Settings", () => {
 test.describe("Vacation mode", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("pausing takes one tap, with no date to work out", async ({ page }) => {
-    await page.goto("/settings");
+    await gotoUnlocked(page, "/settings");
     await page.getByRole("button", { name: /^Vacation mode/ }).click();
 
     await expect(page.locator('input[type="date"]')).toHaveCount(0);
@@ -74,48 +74,48 @@ test.describe("Vacation mode", () => {
     await expect(page.getByText(/Paused until/)).toBeVisible();
   });
 
-  test("six months is the longest pause the server will accept", async ({ request }) => {
-    const atCap = await request.patch("/api/settings", { data: { vacationDays: 183 } });
+  test("six months is the longest pause the server will accept", async ({ api }) => {
+    const atCap = await api.patch("/api/settings", { data: { vacationDays: 183 } });
     expect((await atCap.json()).success).toBe(true);
-    await request.patch("/api/settings", { data: { vacationDays: null } });
+    await api.patch("/api/settings", { data: { vacationDays: null } });
 
     for (const days of [184, 3650]) {
-      const res = await request.patch("/api/settings", { data: { vacationDays: days } });
+      const res = await api.patch("/api/settings", { data: { vacationDays: days } });
       const body = await res.json();
       expect(body.success, `${days} days should be refused`).toBe(false);
       expect(body.error).toMatch(/at most 183 days/);
     }
 
     // Nothing leaked through from the refusals.
-    const { onVacation } = await (await request.get("/api/settings")).json();
+    const { onVacation } = await (await api.get("/api/settings")).json();
     expect(onVacation).toBe(false);
   });
 
-  test("a paused account is shown as paused on the safety screen", async ({ page, request }) => {
-    await request.patch("/api/settings", { data: { vacationDays: 30 } });
+  test("a paused account is shown as paused on the safety screen", async ({ page, api }) => {
+    await api.patch("/api/settings", { data: { vacationDays: 30 } });
 
-    await page.goto("/heartbeat");
+    await gotoUnlocked(page, "/heartbeat");
     await expect(page.getByText("Your safety timer is paused")).toBeVisible();
     // Nothing to do while away, so the check-in button is not offered.
     await expect(page.getByRole("button", { name: /I am safe and well/i })).toBeHidden();
   });
 
-  test("no reminders are generated while paused", async ({ request }) => {
-    await request.patch("/api/settings", { data: { vacationDays: 30 } });
+  test("no reminders are generated while paused", async ({ api }) => {
+    await api.patch("/api/settings", { data: { vacationDays: 30 } });
 
-    const { onVacation, notifications } = await (await request.get("/api/heartbeat")).json();
+    const { onVacation, notifications } = await (await api.get("/api/heartbeat")).json();
     expect(onVacation).toBe(true);
     expect(notifications).toHaveLength(0);
   });
 
-  test("returning early resumes and offers the chooser again", async ({ page, request }) => {
-    await request.patch("/api/settings", { data: { vacationDays: 90 } });
+  test("returning early resumes and offers the chooser again", async ({ page, api }) => {
+    await api.patch("/api/settings", { data: { vacationDays: 90 } });
 
-    await page.goto("/settings");
+    await gotoUnlocked(page, "/settings");
     await page.getByRole("button", { name: /^Vacation mode/ }).click();
     await page.getByRole("button", { name: /I'm back/ }).click();
 
     await expect(page.getByRole("button", { name: "3 months", exact: true })).toBeVisible();
-    expect((await (await request.get("/api/settings")).json()).onVacation).toBe(false);
+    expect((await (await api.get("/api/settings")).json()).onVacation).toBe(false);
   });
 });

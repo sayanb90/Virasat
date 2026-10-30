@@ -1,47 +1,28 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React from "react";
+import { lock, useAuth } from "@/lib/auth/client";
 
 interface VaultSessionValue {
-  masterKey: CryptoKey | null;
-  masterKeyHex: string;
-  unlock: (key: CryptoKey, keyHex: string) => void;
+  /** K_vault, the key every note is encrypted under. Null while locked. */
+  vaultKey: CryptoKey | null;
+  vaultKeyHex: string;
   lock: () => void;
 }
 
-const VaultSessionContext = createContext<VaultSessionValue | null>(null);
-
 /**
- * Holds the derived master key for the lifetime of the tab.
+ * The open vault, as the note screens see it.
  *
- * Deliberately in memory only: the key never touches localStorage, cookies or
- * the server, so closing the tab ends the session and nothing recoverable is
- * left behind.
+ * K_vault lives in memory in `lib/auth/client.ts`, which owns signing in and
+ * unlocking; this is just the view the screens read. It never touches
+ * localStorage, cookies or the server, so a cold start or five minutes in the
+ * background locks it again (docs/authentication.md §4).
  */
 export function VaultSessionProvider({ children }: { children: React.ReactNode }) {
-  const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
-  const [masterKeyHex, setMasterKeyHex] = useState("");
-
-  const unlock = useCallback((key: CryptoKey, keyHex: string) => {
-    setMasterKey(key);
-    setMasterKeyHex(keyHex);
-  }, []);
-
-  const lock = useCallback(() => {
-    setMasterKey(null);
-    setMasterKeyHex("");
-  }, []);
-
-  const value = useMemo(
-    () => ({ masterKey, masterKeyHex, unlock, lock }),
-    [masterKey, masterKeyHex, unlock, lock]
-  );
-
-  return <VaultSessionContext.Provider value={value}>{children}</VaultSessionContext.Provider>;
+  return <>{children}</>;
 }
 
 export function useVaultSession(): VaultSessionValue {
-  const ctx = useContext(VaultSessionContext);
-  if (!ctx) throw new Error("useVaultSession must be used inside <VaultSessionProvider>");
-  return ctx;
+  const { vaultKey, vaultKeyHex } = useAuth();
+  return { vaultKey, vaultKeyHex, lock };
 }

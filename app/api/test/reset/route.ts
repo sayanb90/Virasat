@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/state/mockDatabase";
+import { resetVaultsForTesting } from "@/lib/state/mockDatabase";
+import { authStore } from "@/lib/auth/store";
+import { resetClockForTesting } from "@/lib/auth/clock";
 import { resetOutbox } from "@/lib/email";
 import { resetLedger } from "@/lib/billing";
 
@@ -21,7 +23,9 @@ export async function POST() {
   if (!enabled()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  db.resetForTesting();
+  resetVaultsForTesting();
+  authStore.resetForTesting();
+  resetClockForTesting();
   resetOutbox();
   resetLedger();
   return NextResponse.json({ success: true });

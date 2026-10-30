@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { handleWebhook } from "@/lib/billing";
-import { db } from "@/lib/state/mockDatabase";
 
 /**
  * POST /api/billing/webhook
@@ -31,13 +30,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, replayed: true });
   }
 
-  db.logAudit(
-    "Billing Event Received",
-    "ZeroKnowledgeSync",
-    `Verified "${outcome.event.type}"` +
-      (outcome.event.reference ? ` for ${outcome.event.reference}` : "") +
-      (outcome.event.failureReason ? ` (${outcome.event.failureReason})` : "")
-  );
+  // The ledger has recorded it. Nothing is written to an account's security
+  // log yet: events are not tied to accounts until entitlement lands (see
+  // lib/billing/index.ts), and with real accounts there is no single log to
+  // write to.
 
   return NextResponse.json({ success: true, type: outcome.event.type });
 }

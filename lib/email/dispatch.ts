@@ -8,7 +8,7 @@
  * fact the expected pattern.
  */
 
-import { db } from "@/lib/state/mockDatabase";
+import type { MockZeroKnowledgeDatabase } from "@/lib/state/mockDatabase";
 import {
   getPhaseFromElapsedDays,
   generateNotificationsForElapsedDays,
@@ -16,11 +16,11 @@ import {
 import { sendEmail, templateContext } from "./index";
 import { safetyCheckIn, beneficiaryRelease, type LadderTone } from "./templates";
 
-/** The owner's own details. Hardcoded until there are real accounts. */
-const OWNER = {
-  name: process.env.OWNER_NAME ?? "there",
-  email: process.env.OWNER_EMAIL ?? "",
-};
+/** Who the ladder is addressed to: the signed-in account's own details. */
+export interface Owner {
+  name: string;
+  email: string;
+}
 
 function toneFor(phase: number): LadderTone | null {
   if (phase === 1) return "gentle";
@@ -46,7 +46,10 @@ const EMPTY: DispatchSummary = { attempted: 0, sent: 0, skipped: 0, failed: 0, e
  * Returns a summary rather than throwing: `/api/heartbeat` is how a user says
  * "I am alive", and an email provider being down must never stop that.
  */
-export async function dispatchDueEmails(): Promise<DispatchSummary> {
+export async function dispatchDueEmails(
+  db: MockZeroKnowledgeDatabase,
+  OWNER: Owner
+): Promise<DispatchSummary> {
   // A paused account is paused: no ladder, no release, nothing sent.
   if (db.isOnVacation()) return { ...EMPTY };
 

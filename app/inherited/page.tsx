@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Eyebrow, PageTitle, EmptyState } from "@/components/ui/Page";
 import type { VaultItemRecord } from "@/lib/state/mockDatabase";
+import { apiFetch } from "@/lib/auth/client";
 
 export default function InheritedNotesPage() {
   const [notes, setNotes] = useState<VaultItemRecord[]>([]);
@@ -13,7 +14,7 @@ export default function InheritedNotesPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/inherited");
+        const res = await apiFetch("/api/inherited");
         const data = await res.json();
         if (!cancelled && data.success) setNotes(data.notes);
       } catch (err) {
