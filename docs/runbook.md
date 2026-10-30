@@ -175,7 +175,7 @@ release. Everything else is read by the API host at runtime.
 | `CLIENT_IP_HEADER`, `TRUSTED_PROXY_HOPS` | to match the host | Default `x-forwarded-for`, `1`. If wrong, the per-network limits count the proxy (everyone shares one limit) or trust a forged address. |
 
 **Must never be set in production:**
-- `VIRASAT_E2E` opens the test routes: reset, codes, the clock and the scheduler time-machine.
+- `VIRASAT_E2E` opens the test routes (reset, codes, the clock and the scheduler time-machine) and lists every account's email outbox and billing ledger to any signed-in caller.
 - `CORS_ALLOWED_ORIGINS` allows extra origins, for the test harness only.
 - `STUB_WEBHOOK_SECRET`.
 - `AUTH_PROVIDERS_DRIVER=stub`.
@@ -412,6 +412,7 @@ printed password can open every seeded vault.
 | Command | What it runs |
 | :--- | :--- |
 | `npm run test:coverage` | Unit tests and Cucumber, under coverage, with the gate for code from phase 2 on (`.c8-new-code.json`) |
+| `tests/unit/route-auth.test.ts` (in the above) | Every API route's rule: who may call it, 401/403 without the right session, no Owner reaching another's data. A new route fails it until it is given a rule |
 | `npm run build:e2e-split && npm run test:e2e:split` | Playwright against the static app and a separate API, as shipped |
 | `npm run test:e2e` | Playwright with app and API on one origin (development) |
 | `npm run db:mock` | Not a test: the mock data in §8.1, for trying the whole thing by hand |

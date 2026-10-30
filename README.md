@@ -255,8 +255,8 @@ feature can be switched off per account.
 | `/audit` | The security log itself |
 | `/claim`, `/inherited` | For family: how notes arrive, and what was left to you |
 | `/help` | Plain-language help (linked from Settings and `/inherited`) |
-| `GET /api/email` | Email configuration and the send ledger |
-| `GET /api/billing` | Billing configuration and the webhook ledger |
+| `GET /api/email` | Email configuration; the send ledger only to the test harness |
+| `GET /api/billing` | Billing configuration; the webhook ledger only to the test harness |
 | `POST /api/billing/webhook` | Signature-verified provider events |
 | `/api/auth/*` | Sign-up, sign-in, device unlock, refresh, recovery — see [Signing in](#-signing-in) |
 
@@ -393,7 +393,8 @@ an email provider being down must not break that.
 
 There is no scheduler in this build, so a read of `/api/heartbeat` is also the
 dispatch trigger. `GET /api/email` reports the configuration (presence of a
-key, never its value) and the outbox.
+key, never its value). The outbox spans every account, so it is listed only
+when `VIRASAT_E2E=1`.
 
 **A paused account is never chased** — vacation mode stops the ladder and the
 release, and a spec asserts nothing is sent while paused.
@@ -473,8 +474,8 @@ still processed.
 | `RAZORPAY_KEY_SECRET` | Server only |
 | `RAZORPAY_WEBHOOK_SECRET` | Set separately in the dashboard; differs between test and live |
 
-`GET /api/billing` reports configuration shape and the ledger — whether
-credentials are present, never what they are.
+`GET /api/billing` reports configuration shape — whether credentials are
+present, never what they are — and, only when `VIRASAT_E2E=1`, the ledger.
 
 ### Known limits
 
@@ -543,12 +544,12 @@ static export on one origin, the API on another, exactly as the native app
 talks to it — so every PR is checked against the two artifacts that ship.
 `native.yml` also compiles the iOS and Android apps when native code changes.
 
-**Unit tests (`tests/unit`, 257 tests)** use Node's own test runner, with no
+**Unit tests (`tests/unit`, 267 tests)** use Node's own test runner, with no
 framework. `client.test.ts` runs the app's sign-in code on a "phone": the
 native bridge over a fake plugin that answers in the real plugins' formats,
 against the real API route handlers served in-process
 (`tests/unit/harness.ts`). The rest cover the DER and point conversions, the
-CORS and API-only rules, the static server's resolution and Capacitor modes,
+CORS and API-only rules, who may call each API route (`route-auth.test.ts`: every route on disk must have a rule, or the suite fails), the static server's resolution and Capacitor modes,
 the three builds, and the browser harness's storage.
 
 **Coverage.** `npm run test:coverage` writes `coverage/index.html` and fails

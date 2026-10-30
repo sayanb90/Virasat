@@ -7,6 +7,10 @@ import { listOutbox, mailerStatus } from "@/lib/email";
  *
  * Deliberately reports configuration *shape* and never a key: `ready` says
  * whether a key is present, not what it is.
+ *
+ * The outbox spans every account (who was written to, and about what), so it
+ * is only listed to the test harness (VIRASAT_E2E=1). A signed-in Owner sees
+ * the configuration and nothing of anyone else's mail.
  */
 export async function GET(req: Request) {
   const caller = requireSession(req);
@@ -14,6 +18,6 @@ export async function GET(req: Request) {
   return NextResponse.json({
     success: true,
     status: mailerStatus(),
-    outbox: listOutbox(),
+    ...(process.env.VIRASAT_E2E === "1" ? { outbox: listOutbox() } : {}),
   });
 }
