@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/state/mockDatabase";
+import { isResponse, requireSession } from "@/lib/auth/http";
 import { getPhaseFromElapsedDays, generateNotificationsForElapsedDays } from "@/lib/state/heartbeatMachine";
 
 /**
@@ -17,6 +17,9 @@ export async function POST(req: Request) {
   if (process.env.VIRASAT_E2E !== "1") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const caller = requireSession(req);
+  if (isResponse(caller)) return caller;
+  const db = caller.vault;
 
   try {
     const body = await req.json();

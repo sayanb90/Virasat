@@ -1,10 +1,13 @@
 "use client";
 
+import { inviteAcceptPath } from "@/lib/routes";
+import { publicWebUrl } from "@/lib/config";
 import React, { useCallback, useEffect, useState } from "react";
 import { Check, Copy, Plus, Trash2, UserPlus } from "lucide-react";
 import { Eyebrow, PageTitle, EmptyState } from "@/components/ui/Page";
 import { Button } from "@/components/ui/Button";
 import type { TrustedFriendRecord } from "@/lib/state/mockDatabase";
+import { apiFetch } from "@/lib/auth/client";
 
 export default function TrustedFriendsPage() {
   const [friends, setFriends] = useState<TrustedFriendRecord[]>([]);
@@ -23,7 +26,7 @@ export default function TrustedFriendsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/trusted-friends");
+        const res = await apiFetch("/api/trusted-friends");
         const data = await res.json();
         if (cancelled || !data.success) return;
         setFriends(data.friends);
@@ -43,7 +46,7 @@ export default function TrustedFriendsPage() {
     e.preventDefault();
     setError("");
     try {
-      const res = await fetch("/api/trusted-friends", {
+      const res = await apiFetch("/api/trusted-friends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name }),
@@ -66,12 +69,12 @@ export default function TrustedFriendsPage() {
     if (!window.confirm(`Remove ${friend.name}? They will no longer be able to confirm you are well.`)) {
       return;
     }
-    await fetch(`/api/trusted-friends?id=${encodeURIComponent(friend.id)}`, { method: "DELETE" });
+    await apiFetch(`/api/trusted-friends?id=${encodeURIComponent(friend.id)}`, { method: "DELETE" });
     reload();
   };
 
   const copyLink = async (friend: TrustedFriendRecord) => {
-    const link = `${window.location.origin}/trusted-friends/accept/${friend.inviteToken}`;
+    const link = publicWebUrl(inviteAcceptPath(friend.inviteToken));
     try {
       await navigator.clipboard.writeText(link);
       setCopiedId(friend.id);
@@ -83,7 +86,7 @@ export default function TrustedFriendsPage() {
 
   const setEnabledOnServer = async (next: boolean) => {
     setEnabled(next);
-    await fetch("/api/settings", {
+    await apiFetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ trustedFriendsEnabled: next }),

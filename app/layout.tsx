@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
+import { IS_NATIVE_BUILD } from "@/lib/config";
+import { NATIVE_RELOAD_TO_ROOT } from "@/lib/native/reloadToRoot";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -27,6 +29,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// See lib/native/reloadToRoot.ts: a deep reload in the shell gets the root page.
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,6 +38,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${sourceSerif.variable}`}>
+      {IS_NATIVE_BUILD && (
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: NATIVE_RELOAD_TO_ROOT }} />
+        </head>
+      )}
       <body className="font-sans antialiased">
         <AppShell>{children}</AppShell>
       </body>

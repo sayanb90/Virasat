@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The native projects: their only JavaScript is a copy of out/.
+    "android/**",
+    "ios/**",
   ]),
 ]);
 

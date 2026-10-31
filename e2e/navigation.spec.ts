@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { gotoUnlocked, navigateViaMenu, resetServer, seedOnboarded, unlockIfNeeded } from "./support/app";
+import { test, expect } from "./support/fixtures";
+import { gotoUnlocked, navigateViaMenu, resetServer, signUp, unlockIfNeeded } from "./support/app";
 
 const DESTINATIONS = [
   { label: "My notes", url: /\/notes$/, heading: /Insurance & Cover/ },
@@ -15,7 +15,7 @@ const DESTINATIONS = [
 test.describe("Navigation", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   for (const dest of DESTINATIONS) {
@@ -28,7 +28,7 @@ test.describe("Navigation", () => {
   }
 
   test("the home route sends you to My notes", async ({ page }) => {
-    await page.goto("/");
+    await gotoUnlocked(page, "/");
     await expect(page).toHaveURL(/\/notes$/);
   });
 
@@ -36,7 +36,7 @@ test.describe("Navigation", () => {
     page,
   }) => {
     await gotoUnlocked(page, "/notes");
-    await page.goto("/this-route-does-not-exist");
+    await gotoUnlocked(page, "/this-route-does-not-exist");
 
     await expect(page.getByText(/That page does not exist/i)).toBeVisible();
     // The first fear this product raises is "have I lost everything?", so the

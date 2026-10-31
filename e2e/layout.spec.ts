@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
-import { resetServer, seedOnboarded, unlockIfNeeded } from "./support/app";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
+import { gotoUnlocked, resetServer, signUp } from "./support/app";
 
 /**
  * A button whose label spills onto a second line looks unfinished, and it is
@@ -22,8 +23,8 @@ const ROUTES = [
   "/audit",
   "/claim",
   "/help",
-  "/notes/banks.nominees",
-  "/notes/banks.nominees/new",
+  "/notes/category?sub=banks.nominees",
+  "/notes/new?sub=banks.nominees",
 ];
 
 /**
@@ -60,14 +61,14 @@ async function wrappedButtonLabels(page: Page): Promise<Array<{ label: string; l
 test.describe("Button labels fit on one line at 390px", () => {
   test.beforeEach(async ({ page, request }) => {
     await resetServer(request);
-    await seedOnboarded(page);
+    await signUp(page);
   });
 
   test("the unlock screen's buttons do not wrap", async ({ page }) => {
     // The locked state is a screen too. An earlier sweep clicked past it and
     // so missed the one button that was actually broken.
     await page.goto("/notes");
-    await expect(page.getByRole("button", { name: /Touch ID/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Use Face ID" })).toBeVisible();
 
     const wrapped = await wrappedButtonLabels(page);
     expect(wrapped, `wrapped on the unlock screen: ${JSON.stringify(wrapped)}`).toEqual([]);
@@ -75,8 +76,7 @@ test.describe("Button labels fit on one line at 390px", () => {
 
   for (const route of ROUTES) {
     test(`no button wraps on ${route}`, async ({ page }) => {
-      await page.goto(route);
-      await unlockIfNeeded(page);
+      await gotoUnlocked(page, route);
       await page.waitForLoadState("networkidle");
 
       const wrapped = await wrappedButtonLabels(page);

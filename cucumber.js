@@ -14,7 +14,8 @@ module.exports = {
   default: {
     paths: ["features/**/*.feature"],
     require: ["features/step_definitions/**/*.ts"],
-    requireModule: ["ts-node/register"],
+    // tsconfig-paths: route handlers import with the "@/" alias.
+    requireModule: ["ts-node/register", "tsconfig-paths/register"],
     format: ["progress", "summary"],
     publishQuiet: true,
   },

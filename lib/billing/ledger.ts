@@ -23,8 +23,9 @@ export interface LedgerEntry {
   at: string;
 }
 
-const entries: LedgerEntry[] = [];
-const applied = new Set<string>();
+// On globalThis: see lib/state/mockDatabase.ts.
+const g = globalThis as { __virasatLedger?: { entries: LedgerEntry[]; applied: Set<string> } };
+const { entries, applied } = (g.__virasatLedger ??= { entries: [], applied: new Set<string>() });
 
 export function alreadyApplied(eventId: string): boolean {
   return applied.has(eventId);
@@ -45,4 +46,19 @@ export function listLedger(): LedgerEntry[] {
 export function resetLedger(): void {
   entries.length = 0;
   applied.clear();
+}
+
+export interface LedgerSnapshot {
+  entries: LedgerEntry[];
+  applied: string[];
+}
+
+export function snapshotLedger(): LedgerSnapshot {
+  return { entries: [...entries], applied: [...applied] };
+}
+
+export function restoreLedger(snap: LedgerSnapshot): void {
+  resetLedger();
+  entries.push(...snap.entries);
+  for (const id of snap.applied) applied.add(id);
 }

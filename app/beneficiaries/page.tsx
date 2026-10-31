@@ -6,6 +6,7 @@ import { Eyebrow, PageTitle, EmptyState } from "@/components/ui/Page";
 import { Button } from "@/components/ui/Button";
 import { generateBeneficiaryKeyPair } from "@/lib/crypto/asymmetric";
 import type { BeneficiaryRecord } from "@/lib/state/mockDatabase";
+import { apiFetch } from "@/lib/auth/client";
 
 export default function BeneficiaryPage() {
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRecord[]>([]);
@@ -25,7 +26,7 @@ export default function BeneficiaryPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/beneficiaries");
+        const res = await apiFetch("/api/beneficiaries");
         const data = await res.json();
         if (!cancelled && data.success) setBeneficiaries(data.beneficiaries);
       } catch (err) {
@@ -49,7 +50,7 @@ export default function BeneficiaryPage() {
       // The key pair is made here, on the device. Only the public half is ever
       // needed to seal a note for them.
       const keyPair = await generateBeneficiaryKeyPair();
-      const res = await fetch("/api/beneficiaries", {
+      const res = await apiFetch("/api/beneficiaries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -85,7 +86,7 @@ export default function BeneficiaryPage() {
     ) {
       return;
     }
-    await fetch(`/api/beneficiaries?id=${encodeURIComponent(person.id)}`, { method: "DELETE" });
+    await apiFetch(`/api/beneficiaries?id=${encodeURIComponent(person.id)}`, { method: "DELETE" });
     reload();
   };
 

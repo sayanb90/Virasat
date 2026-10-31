@@ -11,6 +11,12 @@
  *   APP_URL          e.g. "https://virasat.app"           (links in emails)
  *   RESEND_API_KEY   when EMAIL_DRIVER=resend
  *   SENDGRID_API_KEY when EMAIL_DRIVER=sendgrid
+ *   EMAIL_REDIRECT_TO  development and demos only: deliver every message to
+ *                      this one address instead, with the intended recipient
+ *                      in the subject. Lets a whole flow (owners, friends,
+ *                      beneficiaries) land in one inbox, and is what a
+ *                      provider's sandbox needs (Resend's onboarding@resend.dev
+ *                      sends only to the account's own address).
  */
 
 import { createConsoleDriver } from "./drivers/console";
@@ -77,6 +83,21 @@ export function mailerStatus(): MailerStatus {
   };
 }
 
+/** The message as delivered under EMAIL_REDIRECT_TO; unchanged when it is unset. */
+export function redirected(message: EmailMessage, to: string | undefined = process.env.EMAIL_REDIRECT_TO): EmailMessage {
+  const target = to?.trim();
+  if (!target || target.toLowerCase() === message.to.email.toLowerCase()) return message;
+  const intended = message.to.name ? `${message.to.name} <${message.to.email}>` : message.to.email;
+  const note = `[Redirected by EMAIL_REDIRECT_TO. Meant for: ${intended}]`;
+  return {
+    ...message,
+    to: { email: target, name: message.to.name },
+    subject: `[to ${message.to.email}] ${message.subject}`,
+    text: `${note}\n\n${message.text}`,
+    ...(message.html ? { html: `<p style="color:#666;font-size:13px">${note.replace(/</g, "&lt;")}</p>${message.html}` } : {}),
+  };
+}
+
 /**
  * Sends one message, at most once.
  *
@@ -108,7 +129,7 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult & { s
 
   let result: SendResult;
   try {
-    result = await driver.send(message, from);
+    result = await driver.send(redirected(message), from);
   } catch (err) {
     result = { ok: false, error: err instanceof Error ? err.message : "Email driver threw." };
   }
