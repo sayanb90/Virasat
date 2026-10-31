@@ -1,7 +1,7 @@
 /**
  * Virasat - Every store, saved to one JSON file and loaded back.
  *
- * Until the real database (docs/runbook.md, blocker 1), this is how data
+ * Until the real database (the Runbook (Notion), blocker 1), this is how data
  * survives a restart: the accounts and sessions (lib/auth/store.ts), every
  * vault (lib/state/mockDatabase.ts), the email outbox and the billing ledger.
  * `npm run db:mock` writes one of these files; a server started with

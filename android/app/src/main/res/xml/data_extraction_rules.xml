@@ -3,7 +3,7 @@
   Nothing of Virasat's is backed up or moved to a new phone. The keys that
   open this phone's copies stay in Keystore and cannot move, so a copied
   sign-in would be useless at best. A new phone signs in and gets an email
-  code instead (docs/authentication.md).
+  code instead (the Authentication design page (Notion)).
 -->
 <data-extraction-rules>
     <cloud-backup>

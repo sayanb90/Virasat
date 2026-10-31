@@ -1,7 +1,7 @@
 /**
  * Virasat - Sign-in, device unlock and recovery.
  *
- * The rules of docs/authentication.md, as plain functions over the store, so
+ * The rules of the Authentication design page (Notion), as plain functions over the store, so
  * Cucumber can exercise every one without HTTP and the routes stay thin.
  *
  * The shape of every sign-in:
@@ -319,7 +319,7 @@ export function prelogin(rawEmail: unknown): Outcome<KdfParams> {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Sign-up (docs/authentication.md 3.1, 3.2)                              */
+/* Sign-up (the Authentication design page (Notion) 3.1, 3.2)                              */
 /* ---------------------------------------------------------------------- */
 
 /**
@@ -574,7 +574,7 @@ export async function resendSessionCode(session: SessionRecord): Promise<Outcome
 }
 
 /* ---------------------------------------------------------------------- */
-/* Devices (docs/authentication.md §4)                                    */
+/* Devices (the Authentication design page (Notion) §4)                                    */
 /* ---------------------------------------------------------------------- */
 
 export interface EnrolResult extends SessionGrant {

@@ -11,7 +11,7 @@ import { DigitsField, ErrorText, Heading, messageOf } from "./Fields";
 const OBVIOUS = new Set(["000000", "111111", "123456", "654321", "121212", "112233"]);
 
 /**
- * Face ID / Touch ID and a PIN for this phone (docs/authentication.md 3.1 step
+ * Face ID / Touch ID and a PIN for this phone (the Authentication design page (Notion) 3.1 step
  * 4). The PIN is always set: biometrics fail with wet hands or a cracked
  * sensor, and the PIN is what still works.
  */

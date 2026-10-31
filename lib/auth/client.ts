@@ -224,7 +224,7 @@ let booting: Promise<void> | null = null;
 
 /**
  * Cold start. A remembered sign-in comes back as a *pending* session: Face ID
- * or the PIN is asked every time the app opens (docs/authentication.md §4).
+ * or the PIN is asked every time the app opens (the Authentication design page (Notion) §4).
  */
 export function boot(): Promise<void> {
   if (!booting) booting = doBoot().finally(() => (booting = null));
@@ -580,7 +580,7 @@ async function submitSocial(
 }
 
 /* ---------------------------------------------------------------------- */
-/* Forgotten password (docs/authentication.md 3.6)                        */
+/* Forgotten password (the Authentication design page (Notion) 3.6)                        */
 /* ---------------------------------------------------------------------- */
 
 /** Path A. Face ID / PIN, then the email code, then a new password. */

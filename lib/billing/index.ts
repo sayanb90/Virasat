@@ -85,7 +85,7 @@ export type WebhookOutcome =
  * Applying the event to an account is deliberately NOT done here. What a
  * payment or a lapse means for entitlement depends on liveness as well as
  * billing, and that model is still being settled — see
- * docs/release-and-entitlement.md.
+ * the Release plan page (Notion).
  */
 export function handleWebhook(rawBody: string, headers: Headers): WebhookOutcome {
   const driver = resolveDriver();

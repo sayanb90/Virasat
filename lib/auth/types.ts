@@ -1,7 +1,7 @@
 /**
  * Virasat - Sign-in records.
  *
- * See docs/authentication.md §5. None of these hold a password, a vault key
+ * See the Authentication design page (Notion) §5. None of these hold a password, a vault key
  * or a PIN: only slow hashes, hashes of random tokens, and blobs the server
  * cannot open.
  */

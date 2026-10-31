@@ -5,7 +5,7 @@
  *
  * - **Native (./native.ts):** the Secure Enclave and Keychain on iOS, Keystore
  *   on Android, with Face ID / Touch ID / fingerprint as the OS's own gate on
- *   the biometric keys (docs/authentication.md §4). The build that ships in
+ *   the biometric keys (the Authentication design page (Notion) §4). The build that ships in
  *   the app (`NEXT_PUBLIC_NATIVE=1`) uses only this, and the browser harness
  *   below is compiled out of it.
  * - **Browser harness (this file):** IndexedDB, and a stand-in for the Face ID

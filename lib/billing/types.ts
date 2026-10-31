@@ -91,7 +91,7 @@ export interface BillingEvent {
   /**
    * Why a payment failed, where the provider says. Not decoration: "card
    * expired" and "account frozen" mean very different things about whether
-   * the account holder is alive. See docs/release-and-entitlement.md.
+   * the account holder is alive. See the Release plan page (Notion).
    */
   failureReason?: string;
   raw: unknown;

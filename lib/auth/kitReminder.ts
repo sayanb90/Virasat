@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * "Remind me later" on the Recovery Kit (docs/authentication.md 3.1 step 5).
+ * "Remind me later" on the Recovery Kit (the Authentication design page (Notion) 3.1 step 5).
  *
  * A device-local flag, like the country: it decides what this phone shows,
  * not anything the server depends on. The server already holds a kit; the
