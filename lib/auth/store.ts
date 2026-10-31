@@ -4,7 +4,7 @@
  * Same contract as `lib/state/mockDatabase.ts`: in memory, reset on restart,
  * and narrow enough that persistence can go behind it without touching a
  * caller. Restarting logs everyone out, which is the forcing function for a
- * real database noted in docs/authentication.md §8.
+ * real database noted in the Authentication design page (Notion) §8.
  *
  * Lookups only. What a record *means* lives in `flows.ts`.
  */

@@ -3,7 +3,7 @@ name: Native app builds
 # Compiles the iOS and Android shells, including the VirasatDevice plugin
 # (Swift and Java). Nothing here runs on a phone: it proves the native code
 # builds against the real SDKs. Behaviour on a device is checked by hand
-# (docs/developmentPlan.md, phase 3 checklist).
+# (the Development plan page (Notion), phase 3 checklist).
 #
 # Only when something native could have changed: macOS minutes are costly.
 on:

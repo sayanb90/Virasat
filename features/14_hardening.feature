@@ -3,7 +3,7 @@ Feature: Hardening: limits, lost phones, passwords, stronger keys and alerts
   I want strangers slowed down, lost phones cut off, and my account to warn me in time
   And I want my password to stay mine to change, and harder to guess as the years go by
 
-  # docs/developmentPlan.md, phase 5.
+  # the Development plan page (Notion), phase 5.
 
   Background:
     Given a fresh sign-in service

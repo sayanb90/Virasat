@@ -12,7 +12,7 @@ import { ButtonLink } from "@/components/ui/Button";
  * What a vault screen shows while the vault is closed.
  *
  * Tier one is remembered on this phone; this is tier two, asked on every cold
- * start and after five minutes away (docs/authentication.md §4).
+ * start and after five minutes away (the Authentication design page (Notion) §4).
  */
 export function UnlockScreen() {
   const { status, user, needs } = useAuth();

@@ -11,7 +11,7 @@ import { Eyebrow, PageTitle } from "@/components/ui/Page";
  * while the server had a single, open vault. With accounts it cannot work,
  * and by design it should not: notes are now handed over by email, as a
  * password-protected PDF and a separate email with the code
- * (docs/authentication.md §7, built in phase 3b). Older release emails still
+ * (the Authentication design page (Notion) §7, built in phase 3b). Older release emails still
  * link here, so the page stays and says what happens instead.
  */
 export default function ClaimPage() {

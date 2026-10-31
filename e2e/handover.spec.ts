@@ -35,7 +35,7 @@ test.describe("Handover", () => {
     await theirs.close();
   });
 
-  // NOT BUILT YET — phase 3b of docs/authentication.md.
+  // NOT BUILT YET — phase 3b of the Authentication design page (Notion).
   //
   // Notes reach a Beneficiary by email as a password-protected PDF, with the
   // handover code in a separate email, rebuilt from a Witness piece and a

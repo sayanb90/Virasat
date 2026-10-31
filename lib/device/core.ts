@@ -1,5 +1,5 @@
 /**
- * Virasat - What a phone holds, and how tier two uses it (docs/authentication.md §4).
+ * Virasat - What a phone holds, and how tier two uses it (the Authentication design page (Notion) §4).
  *
  * Pure crypto, no storage and no screens. The platform decides where the keys
  * live and what stands in front of them, through KeyOps (./keyops.ts):

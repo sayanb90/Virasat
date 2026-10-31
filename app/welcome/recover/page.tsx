@@ -25,7 +25,7 @@ import {
 import { normaliseRecoveryCode } from "@/lib/crypto/keys";
 
 /**
- * Forgotten password (docs/authentication.md 3.6).
+ * Forgotten password (the Authentication design page (Notion) 3.6).
  *
  *   A — this phone still works:  Face ID / PIN → email code → new password
  *   B — the phone is lost too:   email code → Recovery Kit → 72-hour hold → new password

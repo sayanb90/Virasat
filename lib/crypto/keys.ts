@@ -1,5 +1,5 @@
 /**
- * Virasat - The key hierarchy (docs/authentication.md §2).
+ * Virasat - The key hierarchy (the Authentication design page (Notion) §2).
  *
  *   password ──Argon2id(salt, 64 MiB, 2 passes)──▶ K_root   (older accounts: PBKDF2, 600k)
  *                                     ├─HKDF("auth")──▶ K_auth  → sent to the server as a login proof
@@ -149,7 +149,7 @@ export async function unwrapBytes(wrapped: WrappedKey, wrappingKey: CryptoKey): 
 }
 
 /* ---------------------------------------------------------------------- */
-/* The Recovery Kit (docs/authentication.md 3.6)                          */
+/* The Recovery Kit (the Authentication design page (Notion) 3.6)                          */
 /* ---------------------------------------------------------------------- */
 
 /** Crockford base32: no I, L, O or U, so nothing is misread off paper. */
@@ -198,7 +198,7 @@ export async function deriveRecoveryKeys(code: string): Promise<RecoveryKeys> {
 }
 
 /* ---------------------------------------------------------------------- */
-/* The PIN key (docs/authentication.md §4)                                */
+/* The PIN key (the Authentication design page (Notion) §4)                                */
 /* ---------------------------------------------------------------------- */
 
 /**

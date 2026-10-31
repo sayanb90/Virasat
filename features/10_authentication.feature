@@ -3,7 +3,7 @@ Feature: Signing in, unlocking and recovery
   I want every sign-in to need two things, checked by the server
   And I want a way back in that does not hand our server my vault
 
-  # docs/authentication.md. These run the real flows and the real device-side
+  # the Authentication design page (Notion). These run the real flows and the real device-side
   # crypto together: the "phone" in each scenario derives keys, wraps K_vault
   # and signs challenges exactly as the app does.
 

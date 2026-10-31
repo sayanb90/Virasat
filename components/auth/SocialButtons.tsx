@@ -22,7 +22,7 @@ const NATIVE = process.env.NEXT_PUBLIC_NATIVE === "1";
 
 /**
  * Apple, Google and Facebook. Apple is first: App Store rule 4.8 requires it
- * wherever the others are offered (docs/authentication.md §6).
+ * wherever the others are offered (the Authentication design page (Notion) §6).
  *
  * In the iOS and Android apps a tap opens the provider's own sheet
  * (lib/auth/socialSheets.ts), showing only the providers set up for that

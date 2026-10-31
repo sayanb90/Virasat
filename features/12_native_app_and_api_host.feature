@@ -4,7 +4,7 @@ Feature: The app ships inside the phone, and the API lives on its own host
   And I want every link and every screen to keep working inside the app
 
   # The app is a static export carried in the native bundle (next.config.ts);
-  # /api runs on a separate host behind proxy.ts. docs/developmentPlan.md,
+  # /api runs on a separate host behind proxy.ts. the Development plan page (Notion),
   # phases 2 and 3.
 
   # ── Who may call the API ──────────────────────────────────────────────

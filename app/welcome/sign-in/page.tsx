@@ -25,7 +25,7 @@ import {
 import { markKitPending } from "@/lib/auth/kitReminder";
 
 /**
- * Signing in and signing up (docs/authentication.md §3).
+ * Signing in and signing up (the Authentication design page (Notion) §3).
  *
  *   new:       email → code → name + password → Face ID / PIN → Recovery Kit
  *   existing:  email + password → Face ID / PIN   (or, on a new phone: code → Face ID / PIN)

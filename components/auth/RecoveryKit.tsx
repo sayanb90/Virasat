@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Heading } from "./Fields";
 
 /**
- * The Recovery Kit (docs/authentication.md 3.6, path B).
+ * The Recovery Kit (the Authentication design page (Notion) 3.6, path B).
  *
  * The code is shown here and on the printed page, and nowhere else: the
  * server holds only K_vault wrapped by it, and a verifier. It can be

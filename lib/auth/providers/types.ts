@@ -2,7 +2,7 @@ import type { SocialProvider } from "../types";
 
 /**
  * What a provider vouches for, once our server has checked its token. Name and
- * email only: docs/authentication.md §3.2 takes nothing else.
+ * email only: the Authentication design page (Notion) §3.2 takes nothing else.
  */
 export interface VerifiedIdentity {
   provider: SocialProvider;

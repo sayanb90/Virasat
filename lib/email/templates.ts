@@ -344,7 +344,7 @@ export function passwordChanged(
 }
 
 /**
- * The Owner's veto on a Recovery Kit recovery (docs/authentication.md 3.6).
+ * The Owner's veto on a Recovery Kit recovery (the Authentication design page (Notion) 3.6).
  * One tap cancels it. Cancelling can only ever delay a recovery, never
  * expose anything, so the link alone is enough.
  */

@@ -12,7 +12,7 @@ import { DigitsField, ErrorText, messageOf } from "./Fields";
 /**
  * Tier two on a phone that is already set up: Face ID / Touch ID, or the PIN.
  * Used by the unlock screen, by sign-in, and by "forgot password" on this
- * phone (docs/authentication.md 3.3, 3.6).
+ * phone (the Authentication design page (Notion) 3.3, 3.6).
  */
 export function DeviceUnlock({ onDone }: { onDone?: () => void }) {
   const { device } = useAuth();
