@@ -771,7 +771,7 @@ DATA_FILE=data/mock-db.json npm run dev     # sign in with the printed password
 
 Beneficiaries and Trusted Friends are plus-addresses of that inbox, so with
 `--send` and a real email driver every email lands in it. Details, and how to
-send through Resend's sandbox: `docs/runbook.md` §8.1.
+send through Resend's sandbox: the Runbook (Notion) §8.1.
 
 ### Production: two builds from one repo
 
@@ -835,7 +835,7 @@ npx cap open android    # Android Studio: an API 30+ emulator with a fingerprint
   What has and has not been checked on a device is in
   [`docs/developmentPlan.md`](docs/developmentPlan.md), with the checklist.
 - **Going live:** every account, setting, build and deploy step, and the
-  pre-launch gate, is in [`docs/runbook.md`](docs/runbook.md).
+  pre-launch gate, is in [the Runbook (Notion)](https://app.notion.com/p/40a23f85984081edaf57e65462c939f2).
 
 ### Device harness
 

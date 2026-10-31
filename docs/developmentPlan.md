@@ -9,7 +9,7 @@ next. The designs behind it are:
   opens, entitlement and billing.
 
 How to take what is built live (accounts, settings, deploy steps, the
-pre-launch gate) is in [`runbook.md`](runbook.md). Keep both current.
+pre-launch gate) is in [the Runbook (Notion)](https://app.notion.com/p/40a23f85984081edaf57e65462c939f2). Keep both current.
 
 This file says what is **built**, what is **decided but not built**, and the
 **order** to build the rest in. When a phase lands, move it from "Next" to
